@@ -155,6 +155,17 @@ export default function ReviewFlow({ card, business }: Props) {
     }
   };
 
+  const getGoogleReviewUrl = () => {
+    let raw = business.google_review_url?.trim() || '';
+    if (!raw) {
+      return `https://www.google.com/search?q=${encodeURIComponent(business.name)}+reviews`;
+    }
+    if (!raw.startsWith('http://') && !raw.startsWith('https://')) {
+      raw = `https://${raw}`;
+    }
+    return raw;
+  };
+
   const handleOpenGoogle = () => {
     triggerHaptic(25);
     handleCopyReview();
@@ -174,11 +185,9 @@ export default function ReviewFlow({ card, business }: Props) {
       card_code: card.card_code,
     }).catch(() => {});
 
-    window.open(business.google_review_url, '_blank', 'noopener,noreferrer');
-
     setTimeout(() => {
       setStep('success');
-    }, 800);
+    }, 1200);
   };
 
   const currentTags = QUICK_TAGS_BY_RATING[rating] || QUICK_TAGS_BY_RATING[5];
@@ -521,14 +530,27 @@ export default function ReviewFlow({ card, business }: Props) {
                 </div>
               </div>
 
-              <div className="pt-4">
-                <button
-                  type="button"
+              <div className="pt-4 space-y-2">
+                <a
+                  href={getGoogleReviewUrl()}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   onClick={handleOpenGoogle}
-                  className="w-full py-3.5 bg-slate-950 hover:bg-black text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-sm active:scale-[0.98] cursor-pointer"
+                  className="w-full py-3.5 bg-slate-950 hover:bg-black text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-sm active:scale-[0.98] cursor-pointer text-center"
                 >
                   <span>Open Google Reviews</span>
                   <ExternalLink className="w-4 h-4" />
+                </a>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleOpenGoogle();
+                    window.location.href = getGoogleReviewUrl();
+                  }}
+                  className="w-full text-center text-[11px] text-gray-500 hover:text-gray-900 py-1 cursor-pointer transition-colors"
+                >
+                  Redirect directly in this tab →
                 </button>
               </div>
             </div>
