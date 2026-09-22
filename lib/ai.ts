@@ -89,9 +89,10 @@ Never sound robotic or like a paid ad. Match the ${rating}-star sentiment honest
 Return exactly 3 separate paragraphs without numbering, bullets, labels, or quotation marks.`;
 
       // 3.5s timeout race to guarantee instant mobile responsiveness
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('AI generation timed out')), 3500)
-      );
+      let timerId: NodeJS.Timeout | undefined;
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timerId = setTimeout(() => reject(new Error('AI generation timed out')), 3500);
+      });
 
       const aiPromise = model.generateContent(prompt).then((result) => {
         const text = result.response.text();
@@ -103,9 +104,13 @@ Return exactly 3 separate paragraphs without numbering, bullets, labels, or quot
         throw new Error('Incomplete response');
       });
 
-      const suggestions = await Promise.race([aiPromise, timeoutPromise]);
-      if (suggestions && suggestions.length >= 3) {
-        return suggestions;
+      try {
+        const suggestions = await Promise.race([aiPromise, timeoutPromise]);
+        if (suggestions && suggestions.length >= 3) {
+          return suggestions;
+        }
+      } finally {
+        if (timerId) clearTimeout(timerId);
       }
     } catch (err: unknown) {
       // Gracefully fall through to smart instant synthesizer
