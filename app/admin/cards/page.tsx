@@ -4,7 +4,24 @@ import React, { useState, useEffect } from 'react';
 import { Business, PhysicalCard, CardStatus } from '@/lib/types';
 import { getAllBusinesses, getAllCards, issuePhysicalCard, updateCard, deleteCard } from '@/lib/data-service';
 import { QRCodeSVG } from 'qrcode.react';
-import { CreditCard, Plus, CheckCircle2, AlertCircle, Shield, ExternalLink, Search, Edit2, Trash2, X, RefreshCw } from 'lucide-react';
+import {
+  CreditCard,
+  Plus,
+  CheckCircle2,
+  AlertCircle,
+  Shield,
+  ExternalLink,
+  Search,
+  Edit2,
+  Trash2,
+  X,
+  RefreshCw,
+  Download,
+  Copy,
+  Check,
+  Power,
+  Printer,
+} from 'lucide-react';
 
 export default function AdminCardsPage() {
   const [businesses, setBusinesses] = useState<Business[]>([]);
@@ -15,7 +32,7 @@ export default function AdminCardsPage() {
 
   // Issue Card Form State
   const [selectedBizId, setSelectedBizId] = useState('');
-  const [cardName, setCardName] = useState('Front Counter NFC Stand');
+  const [cardName, setCardName] = useState('Front Counter Stand #1');
   const [customCode, setCustomCode] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -32,6 +49,9 @@ export default function AdminCardsPage() {
   // Delete Card Modal State
   const [deletingCard, setDeletingCard] = useState<PhysicalCard | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Copy Feedback State
+  const [copiedCardId, setCopiedCardId] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -63,9 +83,9 @@ export default function AdminCardsPage() {
     setErrorMsg(null);
 
     try {
-      const code = customCode.trim() || `${cards.length + 1}-${Math.random().toString(36).substring(2, 7)}`;
+      const code = customCode.trim() || `TAP-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
       const newCard = await issuePhysicalCard(selectedBizId, cardName.trim(), code);
-      setMessage(`Issued card code "${newCard.card_code}" for "${newCard.business?.name || 'Business'}"!`);
+      setMessage(`Issued physical card "${newCard.card_code}" (${newCard.name})!`);
       setCardName('Table Stand #' + (cards.length + 1));
       setCustomCode('');
       await loadData();
@@ -100,15 +120,28 @@ export default function AdminCardsPage() {
         business_id: editBizId,
         status: editStatus,
       });
-      setMessage(`Card "${editCardCode.trim()}" updated successfully!`);
+
+      setMessage(`Card "${editCardCode.trim()}" successfully updated!`);
       setEditingCard(null);
       await loadData();
     } catch (err: unknown) {
       console.error(err);
-      const msg = err instanceof Error ? err.message : 'Failed to update card.';
+      const msg = err instanceof Error ? err.message : 'Failed to update card details.';
       setErrorMsg(msg);
     } finally {
       setIsSavingEdit(false);
+    }
+  }
+
+  async function handleToggleStatus(card: PhysicalCard) {
+    const nextStatus: CardStatus = card.status === 'active' ? 'inactive' : 'active';
+    try {
+      await updateCard(card.id, { status: nextStatus });
+      setMessage(`Card "${card.card_code}" is now ${nextStatus}.`);
+      await loadData();
+    } catch (err) {
+      console.error(err);
+      setErrorMsg('Failed to update status');
     }
   }
 
@@ -119,7 +152,7 @@ export default function AdminCardsPage() {
 
     try {
       await deleteCard(deletingCard.id);
-      setMessage(`Card "${deletingCard.card_code}" removed from database.`);
+      setMessage(`Card "${deletingCard.card_code}" (${deletingCard.name}) purged.`);
       setDeletingCard(null);
       await loadData();
     } catch (err: unknown) {
@@ -131,33 +164,107 @@ export default function AdminCardsPage() {
     }
   }
 
+  function copyCardUrl(card: PhysicalCard) {
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://tapyy.com';
+    const url = `${origin}/r/${card.card_code}`;
+    navigator.clipboard.writeText(url);
+    setCopiedCardId(card.id);
+    setTimeout(() => {
+      setCopiedCardId(null);
+    }, 2000);
+  }
+
+  function downloadStandQR(card: PhysicalCard) {
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://tapyy.com';
+    const cardUrl = `${origin}/r/${card.card_code}`;
+    const bizName = card.business?.name || 'Tapyy Client';
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 600;
+    canvas.height = 720;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, 600, 720);
+
+    // Border line
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(16, 16, 568, 688);
+
+    // Business Name & Card placement
+    ctx.fillStyle = '#0f172a';
+    ctx.font = 'bold 28px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(bizName, 300, 65);
+
+    ctx.fillStyle = '#64748b';
+    ctx.font = 'bold 18px sans-serif';
+    ctx.fillText(card.name, 300, 95);
+
+    // Serialized SVG QR
+    const svgElement = document.getElementById(`qr-svg-${card.id}`);
+    if (svgElement) {
+      const xml = new XMLSerializer().serializeToString(svgElement);
+      const svg64 = btoa(unescape(encodeURIComponent(xml)));
+      const b64Start = 'data:image/svg+xml;base64,';
+      const image64 = b64Start + svg64;
+
+      const img = new Image();
+      img.onload = () => {
+        ctx.drawImage(img, 90, 130, 420, 420);
+
+        // Footer instructions
+        ctx.fillStyle = '#0f172a';
+        ctx.font = 'bold 20px sans-serif';
+        ctx.fillText(`TAP NFC OR SCAN QR TO REVIEW`, 300, 600);
+
+        ctx.fillStyle = '#d97706';
+        ctx.font = 'bold 16px monospace';
+        ctx.fillText(`Card Code: ${card.card_code}`, 300, 635);
+
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '13px monospace';
+        ctx.fillText(cardUrl, 300, 665);
+
+        const a = document.createElement('a');
+        a.download = `tapyy-stand-${card.card_code}.png`;
+        a.href = canvas.toDataURL('image/png');
+        a.click();
+      };
+      img.src = image64;
+    }
+  }
+
   const filteredCards = cards.filter((card) => {
-    const bizName = card.business?.name || '';
     const matchesSearch =
       card.card_code.toLowerCase().includes(searchQuery.toLowerCase()) ||
       card.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      bizName.toLowerCase().includes(searchQuery.toLowerCase());
+      (card.business?.name && card.business.name.toLowerCase().includes(searchQuery.toLowerCase()));
+
     const matchesStatus = statusFilter === 'all' || card.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
+    <div className="space-y-8 animate-fade-in">
+      {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-600 mb-1">
-            <Shield className="w-4 h-4" /> Super Admin Card Issuance Engine
+            <Shield className="w-4 h-4" /> Physical Hardware Fleet
           </div>
-          <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Physical Cards & Hardware</h1>
+          <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Physical Card Registry</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Generate, update, re-assign, and manage physical NFC & QR cards linked directly to tenant database records.
+            Issue, bind, export print-ready QR stand artwork, and manage live NFC hardware across business tenants.
           </p>
         </div>
 
         <button
           onClick={() => loadData()}
-          className="self-start sm:self-auto px-3.5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold flex items-center gap-2 transition-all"
+          className="self-start sm:self-auto px-3.5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Refresh Registry
         </button>
@@ -165,9 +272,9 @@ export default function AdminCardsPage() {
 
       {/* Notifications */}
       {message && (
-        <div className="p-4 rounded-2xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-semibold flex items-center justify-between shadow-xs">
-          <div className="flex items-center gap-2.5">
-            <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center justify-between shadow-xs animate-fade-in">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
             <span>{message}</span>
           </div>
           <button onClick={() => setMessage(null)} className="text-emerald-600 hover:text-emerald-900">
@@ -177,9 +284,9 @@ export default function AdminCardsPage() {
       )}
 
       {errorMsg && (
-        <div className="p-4 rounded-2xl bg-red-50 text-red-800 border border-red-200 text-xs font-semibold flex items-center justify-between shadow-xs">
-          <div className="flex items-center gap-2.5">
-            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+        <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs font-semibold flex items-center justify-between shadow-xs animate-fade-in">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-red-600" />
             <span>{errorMsg}</span>
           </div>
           <button onClick={() => setErrorMsg(null)} className="text-red-600 hover:text-red-900">
@@ -191,11 +298,16 @@ export default function AdminCardsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Issue Card Form (INSERT) */}
         <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm h-fit space-y-4">
-          <h2 className="text-lg font-extrabold text-gray-900 flex items-center gap-2">
-            <Plus className="w-5 h-5 text-emerald-600" /> Issue New Physical Card
-          </h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-extrabold text-gray-900 flex items-center gap-2">
+              <Plus className="w-5 h-5 text-emerald-600" /> Issue Physical Card
+            </h2>
+            <span className="text-[10px] font-bold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full uppercase">
+              NFC + QR
+            </span>
+          </div>
           <p className="text-xs text-gray-500">
-            Creates a new card hardware record in `public.cards` tied to a tenant.
+            Assigns a physical NFC stand or card record tied to an active business tenant.
           </p>
 
           <form onSubmit={handleIssueCard} className="space-y-4">
@@ -215,35 +327,41 @@ export default function AdminCardsPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">Card Placement / Label *</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-gray-700">Card Placement / Label *</label>
+                <span className="text-[10px] text-gray-400">Physical Location</span>
+              </div>
               <input
                 type="text"
                 required
-                placeholder="e.g. Counter Stand #1"
+                placeholder="e.g. Counter Stand #1, Table 4, Bar Stand"
                 value={cardName}
                 onChange={(e) => setCardName(e.target.value)}
                 className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-black font-medium"
               />
+              <p className="text-[11px] text-gray-400 mt-1">
+                Name of where this hardware unit sits in the physical venue.
+              </p>
             </div>
 
             <div>
               <label className="block text-xs font-bold text-gray-700 mb-1">Custom Code (Optional)</label>
               <input
                 type="text"
-                placeholder="e.g. 1-123ab (auto-generated if blank)"
+                placeholder="e.g. TAP-CTR01 (auto-generated if blank)"
                 value={customCode}
                 onChange={(e) => setCustomCode(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-black font-mono font-bold"
+                className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-black font-mono font-bold uppercase"
               />
               <p className="text-[11px] text-gray-400 mt-1">
-                Format: <code className="bg-gray-100 px-1 rounded font-mono">1-123ab</code>
+                Format: <code className="bg-gray-100 px-1 rounded font-mono">TAP-XXXXX</code>
               </p>
             </div>
 
             <button
               type="submit"
               disabled={isSubmitting || !selectedBizId}
-              className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-sm transition-all disabled:opacity-50 shadow-xs flex items-center justify-center gap-2"
+              className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-sm transition-all disabled:opacity-50 shadow-xs flex items-center justify-center gap-2 cursor-pointer active:scale-98"
             >
               {isSubmitting ? (
                 <>
@@ -256,12 +374,15 @@ export default function AdminCardsPage() {
           </form>
         </div>
 
-        {/* Card Registry Table & Controls (READ, UPDATE, DELETE) */}
+        {/* Card Registry Table & Controls */}
         <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <h2 className="text-lg font-extrabold text-gray-900">
-              Issued Cards Registry ({filteredCards.length})
-            </h2>
+            <div>
+              <h2 className="text-lg font-extrabold text-gray-900">
+                Issued Cards Registry ({filteredCards.length})
+              </h2>
+              <p className="text-xs text-gray-500">Live hardware units currently deployed in the field.</p>
+            </div>
 
             {/* Status Filters */}
             <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl text-xs font-bold">
@@ -269,9 +390,9 @@ export default function AdminCardsPage() {
                 <button
                   key={st}
                   onClick={() => setStatusFilter(st)}
-                  className={`px-3 py-1 rounded-lg capitalize transition-all ${
+                  className={`px-3 py-1 rounded-lg capitalize transition-all cursor-pointer ${
                     statusFilter === st
-                      ? 'bg-white text-gray-900 shadow-xs'
+                      ? 'bg-white text-gray-900 shadow-xs font-extrabold'
                       : 'text-gray-500 hover:text-gray-900'
                   }`}
                 >
@@ -286,7 +407,7 @@ export default function AdminCardsPage() {
             <Search className="w-4 h-4 absolute left-3.5 top-3 text-gray-400" />
             <input
               type="text"
-              placeholder="Search by card code, label, or assigned business..."
+              placeholder="Search by card code, label, or business name..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:border-black font-medium"
@@ -296,7 +417,7 @@ export default function AdminCardsPage() {
           {/* Card Items List */}
           <div className="space-y-4">
             {filteredCards.length === 0 ? (
-              <div className="py-8 text-center text-gray-400 text-xs">
+              <div className="py-12 text-center text-gray-400 text-xs">
                 No physical cards matching your filters.
               </div>
             ) : (
@@ -306,21 +427,26 @@ export default function AdminCardsPage() {
                     ? `${window.location.origin}/r/${card.card_code}`
                     : `https://tapyy.com/r/${card.card_code}`;
 
+                const isCopied = copiedCardId === card.id;
+
                 return (
                   <div
                     key={card.id}
-                    className="p-4 rounded-xl border border-gray-200 bg-gray-50/50 flex flex-col sm:flex-row items-center justify-between gap-4 hover:border-gray-300 transition-all"
+                    className="p-4 rounded-xl border border-gray-200 bg-gray-50/60 flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4 hover:border-gray-300 transition-all shadow-xs"
                   >
-                    <div className="flex items-center gap-4 w-full sm:w-auto">
-                      <div className="bg-white p-2 rounded-xl border border-gray-200 shadow-xs flex-shrink-0">
-                        <QRCodeSVG value={url} size={64} level="M" />
+                    {/* Left: QR Code & Card Identity */}
+                    <div className="flex items-center gap-4 w-full xl:w-auto">
+                      <div className="bg-white p-2 rounded-xl border border-gray-200 shadow-xs flex-shrink-0 flex items-center justify-center">
+                        <QRCodeSVG id={`qr-svg-${card.id}`} value={url} size={64} level="M" />
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono font-extrabold text-xs bg-slate-900 text-amber-400 px-2.5 py-0.5 rounded">
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono font-extrabold text-xs bg-slate-900 text-amber-400 px-2 py-0.5 rounded">
                             {card.card_code}
                           </span>
-                          <strong className="text-sm font-bold text-gray-900">{card.name}</strong>
+                          <strong className="text-sm font-bold text-gray-900 truncate">
+                            {card.name}
+                          </strong>
                           <span
                             className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
                               card.status === 'active'
@@ -333,37 +459,79 @@ export default function AdminCardsPage() {
                             {card.status}
                           </span>
                         </div>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Assigned Tenant:{' '}
+                        <p className="text-xs text-gray-500">
+                          Tenant Business:{' '}
                           <strong className="text-gray-900 font-bold">
                             {card.business?.name || 'Unassigned'}
                           </strong>
                         </p>
-                        <p className="text-[11px] text-gray-400 font-mono mt-0.5">{url}</p>
+                        <p className="text-[11px] text-gray-400 font-mono truncate max-w-sm">{url}</p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                    {/* Right: Actions Toolbar */}
+                    <div className="flex items-center gap-2 w-full xl:w-auto justify-end flex-wrap pt-2 xl:pt-0 border-t xl:border-t-0 border-gray-200">
+                      {/* Copy Tap URL */}
+                      <button
+                        onClick={() => copyCardUrl(card)}
+                        className={`px-2.5 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                          isCopied
+                            ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
+                            : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-100'
+                        }`}
+                        title="Copy NFC URL"
+                      >
+                        {isCopied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                        <span>{isCopied ? 'Copied' : 'Copy Link'}</span>
+                      </button>
+
+                      {/* Download Print Stand QR PNG */}
+                      <button
+                        onClick={() => downloadStandQR(card)}
+                        className="px-2.5 py-1.5 bg-white hover:bg-gray-100 text-gray-700 border border-gray-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+                        title="Export High-Res Stand QR Artwork (PNG)"
+                      >
+                        <Download className="w-3.5 h-3.5 text-blue-600" /> Stand Artwork
+                      </button>
+
+                      {/* Quick Status Toggle */}
+                      <button
+                        onClick={() => handleToggleStatus(card)}
+                        className={`p-2 rounded-lg border transition-colors cursor-pointer ${
+                          card.status === 'active'
+                            ? 'bg-white hover:bg-amber-50 text-amber-600 border-gray-200'
+                            : 'bg-white hover:bg-emerald-50 text-emerald-600 border-gray-200'
+                        }`}
+                        title={card.status === 'active' ? 'Deactivate Card' : 'Activate Card'}
+                      >
+                        <Power className="w-3.5 h-3.5" />
+                      </button>
+
+                      {/* Test Tap Flow */}
                       <a
                         href={`/r/${card.card_code}`}
                         target="_blank"
-                        className="px-3 py-2 bg-black hover:bg-gray-800 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all shadow-xs"
+                        className="px-3 py-1.5 bg-black hover:bg-gray-800 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 transition-all shadow-xs"
                       >
-                        Test Flow <ExternalLink className="w-3 h-3" />
+                        Test <ExternalLink className="w-3 h-3" />
                       </a>
+
+                      {/* Edit Details */}
                       <button
                         onClick={() => openEditModal(card)}
-                        className="p-2 bg-white hover:bg-blue-50 text-blue-600 border border-gray-200 rounded-xl transition-colors"
+                        className="p-1.5 bg-white hover:bg-blue-50 text-blue-600 border border-gray-200 rounded-lg transition-colors cursor-pointer"
                         title="Edit Card Details"
                       >
-                        <Edit2 className="w-4 h-4" />
+                        <Edit2 className="w-3.5 h-3.5" />
                       </button>
+
+                      {/* Delete */}
                       <button
                         onClick={() => setDeletingCard(card)}
-                        className="p-2 bg-white hover:bg-red-50 text-red-600 border border-gray-200 rounded-xl transition-colors"
-                        title="Delete Card"
+                        className="p-1.5 bg-white hover:bg-red-50 text-red-600 border border-gray-200 rounded-lg transition-colors cursor-pointer"
+                        title="Purge Card Hardware"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
@@ -377,16 +545,16 @@ export default function AdminCardsPage() {
       {/* EDIT CARD MODAL (UPDATE) */}
       {editingCard && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-fade-in">
             <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-              <h3 className="text-lg font-extrabold text-gray-900 flex items-center gap-2">
-                <Edit2 className="w-4 h-4 text-emerald-600" /> Edit Card Details
+              <h3 className="text-base font-extrabold text-gray-900 flex items-center gap-2">
+                <Edit2 className="w-4 h-4 text-blue-600" /> Edit Physical Card
               </h3>
               <button
                 onClick={() => setEditingCard(null)}
                 className="text-gray-400 hover:text-gray-600 p-1 rounded-lg"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -407,7 +575,7 @@ export default function AdminCardsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Card Placement / Label</label>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Card Placement / Label *</label>
                 <input
                   type="text"
                   required
@@ -418,13 +586,13 @@ export default function AdminCardsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Card Code (Unique Slug)</label>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Card Code (Unique Identifier)</label>
                 <input
                   type="text"
                   required
                   value={editCardCode}
                   onChange={(e) => setEditCardCode(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-black font-mono font-bold"
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-black font-mono font-bold uppercase"
                 />
               </div>
 
@@ -445,21 +613,21 @@ export default function AdminCardsPage() {
                 <button
                   type="button"
                   onClick={() => setEditingCard(null)}
-                  className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition-all"
+                  className="px-4 py-2.5 text-xs font-bold text-gray-600 hover:bg-gray-100 rounded-xl"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSavingEdit}
-                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-sm"
+                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-2"
                 >
                   {isSavingEdit ? (
                     <>
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Saving Changes...
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Saving...
                     </>
                   ) : (
-                    'Save Database Changes'
+                    'Save Changes'
                   )}
                 </button>
               </div>
@@ -468,31 +636,28 @@ export default function AdminCardsPage() {
         </div>
       )}
 
-      {/* DELETE CARD CONFIRMATION MODAL (DELETE) */}
+      {/* DELETE CONFIRMATION MODAL */}
       {deletingCard && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95">
-            <div className="flex items-center gap-3 text-red-600">
-              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
-                <AlertCircle className="w-6 h-6 text-red-600" />
-              </div>
-              <div>
-                <h3 className="text-lg font-extrabold text-gray-900">Delete Card Code?</h3>
-                <p className="text-xs text-gray-500">This action cannot be undone.</p>
-              </div>
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl animate-fade-in">
+            <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto">
+              <Trash2 className="w-6 h-6" />
             </div>
 
-            <p className="text-xs text-gray-600 bg-red-50 p-3 rounded-xl border border-red-100 leading-relaxed font-medium">
-              Are you sure you want to delete card <strong>&quot;{deletingCard.name}&quot;</strong> (Code: <code className="font-mono">{deletingCard.card_code}</code>)?
-              This will remove the physical hardware code from the database.
-            </p>
+            <div className="text-center space-y-1">
+              <h3 className="text-base font-extrabold text-gray-900">Purge Hardware Record?</h3>
+              <p className="text-xs text-gray-500">
+                Are you sure you want to delete card{' '}
+                <strong className="text-gray-900 font-mono">{deletingCard.card_code}</strong> (
+                {deletingCard.name})? Any customer tapping this physical card will see an unassigned card error.
+              </p>
+            </div>
 
-            <div className="flex items-center justify-end gap-3 pt-2">
+            <div className="flex items-center justify-center gap-3 pt-2">
               <button
                 type="button"
                 onClick={() => setDeletingCard(null)}
-                disabled={isDeleting}
-                className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition-all"
+                className="px-4 py-2.5 text-xs font-bold text-gray-600 hover:bg-gray-100 rounded-xl flex-1"
               >
                 Cancel
               </button>
@@ -500,15 +665,9 @@ export default function AdminCardsPage() {
                 type="button"
                 onClick={handleDeleteConfirm}
                 disabled={isDeleting}
-                className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-sm"
+                className="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl flex-1 transition-all shadow-xs flex items-center justify-center gap-2"
               >
-                {isDeleting ? (
-                  <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Deleting Card...
-                  </>
-                ) : (
-                  'Confirm DB Delete'
-                )}
+                {isDeleting ? 'Purging...' : 'Yes, Delete'}
               </button>
             </div>
           </div>

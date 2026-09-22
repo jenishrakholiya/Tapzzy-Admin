@@ -199,17 +199,15 @@ export default function ReviewFlow({ card, business }: Props) {
           {step === 'welcome' && (
             <div className="flex-1 flex flex-col justify-between text-center animate-fade-in">
               <div className="my-auto py-2">
-                <div className="w-16 h-16 rounded-2xl bg-black text-white flex items-center justify-center font-bold text-2xl mx-auto mb-4 shadow-lg ring-4 ring-black/5">
-                  {business.logo_url && business.logo_url.length <= 4 ? (
-                    <span>{business.logo_url}</span>
-                  ) : (
-                    <span>{business.name.charAt(0)}</span>
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900 text-amber-400 text-xs font-bold mb-4 shadow-sm">
+                  <span>{business.name}</span>
+                  {card.name && (
+                    <>
+                      <span className="text-slate-600">•</span>
+                      <span className="text-slate-200 font-medium">{card.name}</span>
+                    </>
                   )}
                 </div>
-
-                <p className="text-[11px] uppercase tracking-wider font-bold text-gray-400 mb-1">
-                  {business.name}
-                </p>
 
                 <h1 className="text-3xl font-extrabold tracking-tight text-gray-900 leading-tight mb-2 font-heading">
                   How was your visit?

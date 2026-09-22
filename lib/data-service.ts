@@ -5,6 +5,73 @@ import { createAdminClient } from './supabase/admin';
 
 const BIZ_STORAGE_KEY = 'tapyy_businesses_v2';
 const CARDS_STORAGE_KEY = 'tapyy_cards_v2';
+const REVIEWS_STORAGE_KEY = 'tapyy_reviews_v2';
+
+const DEFAULT_SEED_REVIEWS: ReviewSession[] = [
+  {
+    id: 'rev-1',
+    business_id: 'biz-seed-1',
+    business_name: 'Artisan Espresso Lounge',
+    card_id: 'card-seed-1',
+    card_code: 'TAP-BAR01',
+    rating: 5,
+    feedback: 'Friendly barista and delicious oat milk flat white.',
+    review_text: 'Outstanding 5-star experience at Artisan Espresso Lounge! Friendly barista and delicious oat milk flat white. Highly recommended!',
+    google_clicked: true,
+    completed: true,
+    created_at: new Date(Date.now() - 1000 * 60 * 35).toISOString(),
+  },
+  {
+    id: 'rev-2',
+    business_id: 'biz-seed-1',
+    business_name: 'Artisan Espresso Lounge',
+    card_id: 'card-seed-2',
+    card_code: 'TAP-CTR02',
+    rating: 5,
+    feedback: 'Super fast service and cozy atmosphere.',
+    review_text: 'Loved my visit to Artisan Espresso Lounge. Super fast service and cozy atmosphere. Everything exceeded my expectations!',
+    google_clicked: true,
+    completed: true,
+    created_at: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
+  },
+  {
+    id: 'rev-3',
+    business_id: 'biz-seed-2',
+    business_name: 'Grand Horizon Hotel',
+    card_id: 'card-seed-3',
+    card_code: 'TAP-REC01',
+    rating: 4,
+    feedback: 'Smooth check in, clean room, courteous concierge.',
+    review_text: 'Really good experience at Grand Horizon Hotel. Smooth check in, clean room, courteous concierge. Will definitely stay again.',
+    google_clicked: true,
+    completed: true,
+    created_at: new Date(Date.now() - 1000 * 60 * 240).toISOString(),
+  }
+];
+
+function getStoredReviews(): ReviewSession[] {
+  if (typeof window !== 'undefined') {
+    try {
+      const stored = localStorage.getItem(REVIEWS_STORAGE_KEY);
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch {
+      // fallback
+    }
+  }
+  return DEFAULT_SEED_REVIEWS;
+}
+
+function saveStoredReviews(list: ReviewSession[]) {
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(REVIEWS_STORAGE_KEY, JSON.stringify(list));
+    } catch {
+      // fallback
+    }
+  }
+}
 
 function getStoredBusinesses(): Business[] {
   if (typeof window !== 'undefined') {
@@ -351,13 +418,17 @@ export async function getReviewsForBusiness(business_id?: string): Promise<Revie
       let query = supabase.from('review_sessions').select('*').order('created_at', { ascending: false });
       if (business_id) query = query.eq('business_id', business_id);
       const { data, error } = await query;
-      if (!error && data) return data;
+      if (!error && data && data.length > 0) return data;
     } catch {
       // Fallback
     }
   }
 
-  return [];
+  const stored = getStoredReviews();
+  if (business_id) {
+    return stored.filter((r) => r.business_id === business_id);
+  }
+  return stored;
 }
 
 export async function recordEvent(event_type: string, business_id: string, card_id?: string, session_id?: string, metadata?: Record<string, unknown>) {
@@ -393,9 +464,33 @@ export async function createReviewSession(data: {
         completed: data.completed ?? false,
       }]);
     } catch (err) {
-      console.warn('Failed to record review session:', err);
+      console.warn('Failed to record review session in Supabase:', err);
     }
   }
+
+  // Also record in local storage for instantaneous offline & mock reactivity
+  const list = getStoredReviews();
+  const businesses = getStoredBusinesses();
+  const biz = businesses.find((b) => b.id === data.business_id);
+  const cards = getStoredCards();
+  const card = cards.find((c) => c.id === data.card_id);
+
+  const newSession: ReviewSession = {
+    id: `rev-${Date.now()}`,
+    business_id: data.business_id,
+    business_name: biz?.name,
+    card_id: data.card_id,
+    card_code: card?.card_code,
+    rating: data.rating,
+    feedback: data.feedback,
+    review_text: data.review_text,
+    google_clicked: data.google_clicked ?? false,
+    completed: data.completed ?? false,
+    created_at: new Date().toISOString(),
+  };
+
+  list.unshift(newSession);
+  saveStoredReviews(list);
 }
 
 export async function updateBusiness(id: string, updates: Partial<Business>): Promise<Business> {

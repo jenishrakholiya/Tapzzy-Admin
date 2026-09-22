@@ -1,7 +1,18 @@
 import React from 'react';
 import { getAllBusinesses, getAllCards, getReviewsForBusiness } from '@/lib/data-service';
 import Link from 'next/link';
-import { Building2, CreditCard, Star, TrendingUp, Plus, ArrowRight, Sparkles } from 'lucide-react';
+import {
+  Building2,
+  CreditCard,
+  Star,
+  TrendingUp,
+  Plus,
+  ArrowRight,
+  Sparkles,
+  MessageSquare,
+  CheckCircle2,
+  ExternalLink,
+} from 'lucide-react';
 
 export default async function AdminOverviewPage() {
   const businesses = await getAllBusinesses();
@@ -153,9 +164,9 @@ export default async function AdminOverviewPage() {
                     <Link
                       href={`/r/${card.card_code}`}
                       target="_blank"
-                      className="text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-lg border border-amber-200/80 active:scale-95 transition-all"
+                      className="text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-lg border border-amber-200/80 active:scale-95 transition-all flex items-center gap-1"
                     >
-                      Test Tap ↗
+                      Test Tap <ExternalLink className="w-3 h-3" />
                     </Link>
                   </div>
                 );
@@ -163,6 +174,78 @@ export default async function AdminOverviewPage() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Customer Reviews & Live Feedback Activity Feed */}
+      <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <MessageSquare className="w-5 h-5 text-purple-600" />
+            <h2 className="text-base font-extrabold text-gray-900">Recent Customer Reviews & Tap Feed</h2>
+          </div>
+          <Link
+            href="/admin/reviews"
+            className="text-xs font-bold text-purple-600 hover:underline flex items-center gap-1"
+          >
+            All Reviews ({reviews.length}) <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+
+        {reviews.length === 0 ? (
+          <div className="text-center py-8 text-xs text-gray-400">
+            No reviews logged yet. Tap a live card or use Test Tap Flow to generate your first customer feedback.
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-100">
+            {reviews.slice(0, 4).map((rev) => {
+              const biz = rev.business_name || businessMap.get(rev.business_id)?.name || 'Client';
+              const rating = rev.rating || 5;
+
+              return (
+                <div key={rev.id} className="py-3.5 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <strong className="text-sm font-bold text-gray-900">{biz}</strong>
+                      {rev.card_code && (
+                        <span className="text-[10px] font-mono bg-gray-100 px-2 py-0.5 rounded font-bold text-gray-700">
+                          {rev.card_code}
+                        </span>
+                      )}
+                      <div className="flex items-center text-amber-500">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <Star
+                            key={i}
+                            className={`w-3 h-3 ${
+                              i < rating ? 'fill-amber-400 text-amber-400' : 'text-gray-200'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    {rev.google_clicked && (
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" /> Copied to Google
+                      </span>
+                    )}
+                  </div>
+
+                  {rev.feedback && (
+                    <p className="text-xs text-gray-600 italic">
+                      &ldquo;{rev.feedback}&rdquo;
+                    </p>
+                  )}
+
+                  {rev.review_text && (
+                    <p className="text-xs text-gray-900 font-medium bg-amber-50/60 p-2 rounded-lg border border-amber-100">
+                      {rev.review_text}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
