@@ -2,7 +2,6 @@ import React from 'react';
 import Link from 'next/link';
 import {
   ShieldCheck,
-  Sparkles,
   ExternalLink,
   ArrowRight,
   Wifi,
@@ -18,25 +17,19 @@ export default async function LandingPage() {
   const activeBizName = activeCard?.business?.name || 'Artisan Espresso Lounge';
 
   return (
-    <div className="min-h-screen bg-[#f8f8f6] text-gray-900 flex flex-col justify-between font-sans antialiased">
-      {/* Navigation */}
-      <header className="px-5 py-4 max-w-5xl mx-auto w-full flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-slate-950 text-amber-400 flex items-center justify-center font-black text-sm">
-            T
+    <div className="min-h-screen bg-[#f8f8f6] text-gray-900 flex flex-col font-sans antialiased">
+      {/* Top Navigation */}
+      <header className="px-6 py-4 border-b border-gray-200/80 bg-white/80 backdrop-blur-md sticky top-0 z-20">
+        <div className="max-w-5xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-slate-950 text-amber-400 flex items-center justify-center font-black text-sm">
+              T
+            </div>
+            <span className="font-extrabold tracking-tight text-base font-heading">
+              tapyy
+            </span>
           </div>
-          <span className="font-extrabold text-lg tracking-tight text-gray-900 font-heading">
-            tapyy
-          </span>
-        </div>
 
-        <div className="flex items-center gap-2">
-          <Link
-            href={`/r/${activeCardCode}`}
-            className="px-3.5 py-2 bg-white hover:bg-gray-100 text-gray-800 border border-gray-200 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5"
-          >
-            <Wifi className="w-3.5 h-3.5 text-amber-500 rotate-90" /> Test Tap
-          </Link>
           <Link
             href="/admin"
             className="px-3.5 py-2 bg-slate-950 hover:bg-black text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5"
@@ -48,8 +41,8 @@ export default async function LandingPage() {
 
       {/* Hero Section */}
       <main className="max-w-4xl mx-auto px-5 py-12 sm:py-20 text-center space-y-6 my-auto">
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-gray-200 shadow-xs text-xs font-bold text-gray-700">
-          <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Smart NFC & QR Review Stands
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-gray-200 shadow-xs text-xs font-semibold text-gray-700">
+          <span className="w-2 h-2 rounded-full bg-emerald-500" /> Contactless NFC & QR Review Stands
         </div>
 
         <h1 className="text-3xl sm:text-5xl md:text-6xl font-black text-gray-900 tracking-tight leading-tight font-heading">
@@ -57,7 +50,7 @@ export default async function LandingPage() {
         </h1>
 
         <p className="text-sm sm:text-base text-gray-600 max-w-xl mx-auto leading-relaxed">
-          Tapyy pairs contactless venue stands with instant AI drafting. Guests tap their phone, select quick highlights, and paste directly to Google in seconds.
+          Tapyy pairs contactless venue stands with guided review drafting. Guests tap their phone, select quick highlights, and post directly to Google in seconds.
         </p>
 
         {/* Action Grid */}

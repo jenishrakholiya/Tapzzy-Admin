@@ -11,7 +11,6 @@ import {
   Search,
   RefreshCw,
   Building2,
-  Sparkles,
 } from 'lucide-react';
 
 export default function AdminReviewsPage() {
@@ -222,9 +221,9 @@ export default function AdminReviewsPage() {
                   )}
 
                   {rev.review_text && (
-                    <div className="p-2.5 bg-amber-50/70 border border-amber-100/80 rounded-xl text-xs text-gray-900 flex items-start gap-1.5 font-medium">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-600 flex-shrink-0 mt-0.5" />
-                      <p className="leading-relaxed">{rev.review_text}</p>
+                    <div className="p-2.5 bg-gray-50 border border-gray-200/80 rounded-xl text-xs text-gray-800 flex items-start gap-2">
+                      <span className="text-gray-400 font-serif text-sm leading-none mt-0.5">&ldquo;</span>
+                      <p className="leading-relaxed flex-1">{rev.review_text}&rdquo;</p>
                     </div>
                   )}
                 </div>

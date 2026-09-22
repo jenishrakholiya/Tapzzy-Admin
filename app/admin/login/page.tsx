@@ -2,7 +2,7 @@
 
 import React, { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ShieldCheck, Lock, User, Eye, EyeOff, ArrowRight, Sparkles, AlertCircle } from 'lucide-react';
+import { ShieldCheck, Lock, User, Eye, EyeOff, ArrowRight, KeyRound, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 
 function LoginFormContent() {
@@ -32,64 +32,56 @@ function LoginFormContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           username: username.trim(),
-          password: password.trim(),
+          password,
         }),
       });
 
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Invalid credentials.');
+        setErrorMsg(data.error || 'Invalid credentials');
+        return;
       }
 
       router.push(returnUrl);
       router.refresh();
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Login failed.';
-      setErrorMsg(msg);
+    } catch {
+      setErrorMsg('Network error. Please try again.');
     } finally {
       setLoading(false);
     }
   }
 
-  const fillQuickCredentials = () => {
+  function fillQuickCredentials() {
     setUsername('admin');
     setPassword('admin123456');
     setErrorMsg(null);
-  };
+  }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex flex-col justify-between p-4 sm:p-6 relative overflow-hidden">
-      {/* Top Navbar */}
-      <header className="max-w-5xl mx-auto w-full flex items-center justify-between z-10 py-2">
-        <Link href="/" className="flex items-center gap-2 group">
-          <div className="w-8 h-8 rounded-xl bg-white text-black flex items-center justify-center font-black text-sm">
+    <div className="min-h-screen bg-slate-950 flex flex-col justify-between p-4 sm:p-6 text-slate-100 font-sans antialiased selection:bg-amber-400 selection:text-slate-950">
+      {/* Top Simple Bar */}
+      <header className="max-w-md mx-auto w-full flex items-center justify-between py-2">
+        <Link href="/" className="inline-flex items-center gap-2 group">
+          <div className="w-7 h-7 rounded-lg bg-amber-400 text-slate-950 flex items-center justify-center font-black text-xs font-heading">
             T
           </div>
-          <span className="font-extrabold text-lg tracking-tight text-white font-heading">tapyy</span>
-        </Link>
-
-        <Link
-          href="/"
-          className="text-xs text-slate-400 hover:text-white transition-colors"
-        >
-          ← Home
+          <span className="font-extrabold tracking-tight text-white text-sm font-heading">
+            tapyy
+          </span>
         </Link>
       </header>
 
-      {/* Center Auth Card */}
-      <main className="max-w-sm w-full mx-auto my-auto py-8 z-10">
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-7 shadow-2xl space-y-5">
+      {/* Main Card */}
+      <main className="max-w-sm mx-auto w-full my-auto animate-fade-in">
+        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-7 shadow-2xl space-y-5">
           {/* Header */}
-          <div className="text-center space-y-1.5">
-            <div className="w-12 h-12 bg-amber-400 text-slate-950 rounded-2xl flex items-center justify-center mx-auto shadow-md">
-              <ShieldCheck className="w-6 h-6 stroke-[2.2]" />
-            </div>
-            <h1 className="text-xl font-black tracking-tight text-white pt-1">
+          <div className="space-y-1">
+            <h1 className="text-xl font-bold tracking-tight text-white font-heading">
               Admin Login
             </h1>
             <p className="text-xs text-slate-400">
-              Sign in to manage your Tapyy fleet.
+              Sign in to manage stands, cards, and customer reviews.
             </p>
           </div>
 
@@ -100,7 +92,7 @@ function LoginFormContent() {
             className="w-full py-2 px-3 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/80 text-[11px] text-slate-300 flex items-center justify-between transition-all cursor-pointer"
           >
             <span className="flex items-center gap-1.5 font-medium">
-              <Sparkles className="w-3 h-3 text-amber-400" /> Auto-fill
+              <KeyRound className="w-3 h-3 text-amber-400" /> Auto-fill Demo
             </span>
             <span className="text-amber-400 font-mono font-bold">
               admin / admin123456

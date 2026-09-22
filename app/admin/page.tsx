@@ -8,7 +8,6 @@ import {
   TrendingUp,
   Plus,
   ArrowRight,
-  Sparkles,
   MessageSquare,
   CheckCircle2,
   ExternalLink,
@@ -240,10 +239,10 @@ export default async function AdminOverviewPage() {
                   )}
 
                   {rev.review_text && (
-                    <p className="text-xs text-gray-900 bg-amber-50/70 p-2 rounded-xl border border-amber-100/80 flex items-start gap-1.5 font-medium">
-                      <Sparkles className="w-3 h-3 text-amber-600 flex-shrink-0 mt-0.5" />
-                      <span>{rev.review_text}</span>
-                    </p>
+                    <div className="p-2.5 bg-gray-50 border border-gray-200/80 rounded-xl text-xs text-gray-800 flex items-start gap-2">
+                      <span className="text-gray-400 font-serif text-sm leading-none mt-0.5">&ldquo;</span>
+                      <p className="leading-relaxed flex-1">{rev.review_text}&rdquo;</p>
+                    </div>
                   )}
                 </div>
               );
