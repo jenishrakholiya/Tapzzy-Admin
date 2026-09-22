@@ -18,6 +18,8 @@ export async function middleware(request: NextRequest) {
     isAuthenticated = valid;
   }
 
+
+
   const isLoginPage = pathname === '/admin/login';
 
   // If trying to access login page while already authenticated -> redirect to /admin

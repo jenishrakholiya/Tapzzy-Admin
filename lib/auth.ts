@@ -4,11 +4,12 @@
 export const ADMIN_COOKIE_NAME = 'tapyy_admin_session';
 export const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days in seconds
 
-const DEFAULT_SECRET = 'tapyy_secure_admin_session_secret_2026_default';
+const DEFAULT_SECRET = 'tapyy_admin_secret_jwt_key_2026_super_secure';
 
 function getSecretKey(): string {
   return process.env.ADMIN_SESSION_SECRET || DEFAULT_SECRET;
 }
+
 
 export function getAdminCredentials() {
   return {
@@ -26,10 +27,9 @@ export function validateAdminCredentials(usernameInput?: string, passwordInput?:
   );
 }
 
-// Convert string to ArrayBuffer (BufferSource)
-function strToBuffer(str: string): ArrayBuffer {
-  const enc = new TextEncoder().encode(str);
-  return enc.buffer.slice(enc.byteOffset, enc.byteOffset + enc.byteLength) as ArrayBuffer;
+// Convert string to Uint8Array (BufferSource)
+function strToBuffer(str: string): Uint8Array {
+  return new TextEncoder().encode(str);
 }
 
 // Base64Url helper
@@ -42,7 +42,7 @@ function base64UrlEncode(buffer: ArrayBuffer | Uint8Array): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-function base64UrlDecode(str: string): ArrayBuffer {
+function base64UrlDecode(str: string): Uint8Array {
   let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
   while (base64.length % 4) {
     base64 += '=';
@@ -52,9 +52,8 @@ function base64UrlDecode(str: string): ArrayBuffer {
   for (let i = 0; i < binary.length; i++) {
     bytes[i] = binary.charCodeAt(i);
   }
-  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+  return bytes;
 }
-
 
 // Sign payload
 export async function createSessionToken(username: string): Promise<string> {
@@ -72,13 +71,13 @@ export async function createSessionToken(username: string): Promise<string> {
 
   const key = await crypto.subtle.importKey(
     'raw',
-    strToBuffer(getSecretKey()),
+    strToBuffer(getSecretKey()) as unknown as BufferSource,
     { name: 'HMAC', hash: 'SHA-256' },
     false,
     ['sign']
   );
 
-  const signature = await crypto.subtle.sign('HMAC', key, strToBuffer(dataToSign));
+  const signature = await crypto.subtle.sign('HMAC', key, strToBuffer(dataToSign) as unknown as BufferSource);
   const encSignature = base64UrlEncode(signature);
 
   return `${dataToSign}.${encSignature}`;
@@ -95,26 +94,34 @@ export async function verifySessionToken(token: string): Promise<{ valid: boolea
 
     const key = await crypto.subtle.importKey(
       'raw',
-      strToBuffer(getSecretKey()),
+      strToBuffer(getSecretKey()) as unknown as BufferSource,
       { name: 'HMAC', hash: 'SHA-256' },
       false,
       ['verify']
     );
 
     const signatureBytes = base64UrlDecode(encSignature);
-    const isValid = await crypto.subtle.verify('HMAC', key, signatureBytes, strToBuffer(dataToSign));
+    const isValid = await crypto.subtle.verify(
+      'HMAC',
+      key,
+      signatureBytes as unknown as BufferSource,
+      strToBuffer(dataToSign) as unknown as BufferSource
+    );
 
     if (!isValid) return { valid: false };
 
     const payloadJson = new TextDecoder().decode(base64UrlDecode(encPayload));
     const payload = JSON.parse(payloadJson);
 
+
     if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
       return { valid: false };
     }
 
     return { valid: true, username: payload.sub };
-  } catch (err) {
+  } catch {
     return { valid: false };
   }
 }
+
+
