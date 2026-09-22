@@ -46,6 +46,7 @@ export default function ReviewFlow({ card, business }: Props) {
   const [selectedReview, setSelectedReview] = useState<string>('');
   const [copiedToast, setCopiedToast] = useState<boolean>(false);
   const [isRegenerating, setIsRegenerating] = useState<boolean>(false);
+  const [generationPhase, setGenerationPhase] = useState<number>(0);
 
   const triggerHaptic = (ms = 12) => {
     if (typeof window !== 'undefined' && 'vibrate' in navigator) {
@@ -73,6 +74,19 @@ export default function ReviewFlow({ card, business }: Props) {
       setFeedbackText((prev) => prev.trim() + separator + tag);
     }
   };
+
+  // Cycling phases during AI generation
+  useEffect(() => {
+    if (step === 'generating') {
+      setGenerationPhase(0);
+      const t1 = setTimeout(() => setGenerationPhase(1), 600);
+      const t2 = setTimeout(() => setGenerationPhase(2), 1200);
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+      };
+    }
+  }, [step]);
 
   const handleGenerateAI = async (writeOwn = false) => {
     triggerHaptic(15);
@@ -115,7 +129,7 @@ export default function ReviewFlow({ card, business }: Props) {
     } finally {
       setTimeout(() => {
         setStep('suggestions');
-      }, 1200);
+      }, 1800);
     }
   };
 
@@ -352,23 +366,71 @@ export default function ReviewFlow({ card, business }: Props) {
             </div>
           )}
 
-          {/* STEP 3: HIGH-SPEED GENERATION ANIMATION */}
+          {/* STEP 3: HIGH-SPEED GENERATION ANIMATION (PREMIUM AI LOADER) */}
           {step === 'generating' && (
-            <div className="flex-1 flex flex-col items-center justify-center text-center py-12 animate-fade-in">
-              <div className="relative mb-5">
-                <div className="w-16 h-16 rounded-2xl bg-slate-950 text-amber-400 flex items-center justify-center shadow-xl relative z-10">
-                  <Sparkles className="w-8 h-8 animate-pulse text-amber-300" />
+            <div className="flex-1 flex flex-col items-center justify-center text-center py-8 animate-fade-in space-y-6">
+              {/* Cosmic AI Glowing Orb */}
+              <div className="relative flex items-center justify-center my-2">
+                {/* Outer blurred pulsing glow */}
+                <div className="absolute w-28 h-28 rounded-full bg-gradient-to-tr from-amber-400 via-rose-400 to-indigo-500 blur-xl opacity-60 animate-pulse-glow" />
+
+                {/* Rotating dashed orbital ring */}
+                <div className="w-24 h-24 rounded-full border-2 border-dashed border-amber-400/80 animate-orbit-spin flex items-center justify-center" />
+
+                {/* Central Obsidian Badge */}
+                <div className="absolute w-16 h-16 rounded-2xl bg-slate-950 text-amber-400 flex items-center justify-center shadow-2xl z-10 border border-slate-800">
+                  <Sparkles className="w-8 h-8 text-amber-300 animate-float-gentle" />
                 </div>
-                <div className="absolute inset-0 bg-amber-400/20 rounded-2xl blur-xl animate-ping" />
               </div>
 
-              <h2 className="text-xl font-black text-gray-900 mb-2 font-heading">
-                Polishing your review...
-              </h2>
+              {/* Dynamic Phased Status Message */}
+              <div className="space-y-2.5 max-w-[300px]">
+                <h2 className="text-xl font-black text-gray-900 font-heading">
+                  Polishing your review...
+                </h2>
 
-              <div className="w-full space-y-2.5 max-w-[280px] mt-4">
-                <div className="h-14 rounded-2xl shimmer-box" />
-                <div className="h-14 rounded-2xl shimmer-box opacity-60" />
+                {/* Phase Status Pill */}
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-900 text-xs font-semibold shadow-2xs">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping flex-shrink-0" />
+                  <span className="truncate">
+                    {generationPhase === 0 && `Analyzing your ${rating}★ rating...`}
+                    {generationPhase === 1 && 'Synthesizing natural, human phrasing...'}
+                    {generationPhase >= 2 && 'Finalizing 3 Google-ready drafts...'}
+                  </span>
+                </div>
+
+                {/* Animated Progress Bar */}
+                <div className="w-40 h-1 bg-gray-100 rounded-full overflow-hidden mx-auto my-2">
+                  <div
+                    className="h-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 rounded-full transition-all duration-700 ease-out"
+                    style={{
+                      width: generationPhase === 0 ? '35%' : generationPhase === 1 ? '75%' : '98%',
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Ghost Review Preview Card with Typing Waves */}
+              <div className="w-full max-w-[300px] p-4 bg-gray-50 rounded-2xl border border-gray-200/70 shadow-xs space-y-2.5 text-left">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1 text-amber-400">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <Star
+                        key={s}
+                        className={`w-3 h-3 ${
+                          s <= rating ? 'fill-amber-400 text-amber-400' : 'text-gray-200'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-[10px] font-mono text-gray-400">Drafting...</span>
+                </div>
+
+                <div className="space-y-2 pt-1">
+                  <div className="h-2.5 w-full bg-gray-200 rounded-full shimmer-box" />
+                  <div className="h-2.5 w-5/6 bg-gray-200 rounded-full shimmer-box" />
+                  <div className="h-2.5 w-4/6 bg-gray-200 rounded-full shimmer-box" />
+                </div>
               </div>
             </div>
           )}
