@@ -92,10 +92,10 @@ function LoginFormContent() {
             className="w-full py-2 px-3 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/80 text-[11px] text-slate-300 flex items-center justify-between transition-all cursor-pointer"
           >
             <span className="flex items-center gap-1.5 font-medium">
-              <KeyRound className="w-3 h-3 text-amber-400" /> Auto-fill Demo
+              <KeyRound className="w-3.5 h-3.5 text-amber-400" /> Auto-fill Demo
             </span>
-            <span className="text-amber-400 font-mono font-bold">
-              admin / admin123456
+            <span className="text-slate-400 font-mono text-[11px]">
+              admin / ••••••••
             </span>
           </button>
 

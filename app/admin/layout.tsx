@@ -1,5 +1,5 @@
 import React from 'react';
-import AdminSidebar from '@/components/admin/AdminSidebar';
+import AdminShell from '@/components/admin/AdminShell';
 
 export const metadata = {
   title: 'Tapyy Admin Portal — Super Admin Control',
@@ -7,13 +7,6 @@ export const metadata = {
 };
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="min-h-screen bg-[#f8f9fa] flex flex-col md:flex-row text-gray-900">
-      <AdminSidebar />
-      <main className="flex-1 p-4 sm:p-6 md:p-10 overflow-y-auto">
-        <div className="max-w-6xl mx-auto">{children}</div>
-      </main>
-    </div>
-  );
+  return <AdminShell>{children}</AdminShell>;
 }
 
