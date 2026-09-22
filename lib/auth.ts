@@ -18,13 +18,32 @@ export function getAdminCredentials() {
   };
 }
 
+function constantTimeCompare(a: string, b: string): boolean {
+  const enc = new TextEncoder();
+  const aBuf = enc.encode(a);
+  const bBuf = enc.encode(b);
+  if (aBuf.byteLength !== bBuf.byteLength) {
+    return false;
+  }
+  let mismatch = 0;
+  for (let i = 0; i < aBuf.byteLength; i++) {
+    mismatch |= aBuf[i] ^ bBuf[i];
+  }
+  return mismatch === 0;
+}
+
 export function validateAdminCredentials(usernameInput?: string, passwordInput?: string): boolean {
   if (!usernameInput || !passwordInput) return false;
   const { username, password } = getAdminCredentials();
-  return (
-    usernameInput.trim().toLowerCase() === username.toLowerCase() &&
-    passwordInput.trim() === password
+  const usernameMatch = constantTimeCompare(
+    usernameInput.trim().toLowerCase(),
+    username.toLowerCase()
   );
+  const passwordMatch = constantTimeCompare(
+    passwordInput.trim(),
+    password
+  );
+  return usernameMatch && passwordMatch;
 }
 
 // Convert string to Uint8Array (BufferSource)

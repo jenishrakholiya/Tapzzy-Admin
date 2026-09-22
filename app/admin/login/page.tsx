@@ -2,7 +2,7 @@
 
 import React, { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ShieldCheck, Lock, User, Eye, EyeOff, ArrowRight, KeyRound, AlertCircle } from 'lucide-react';
+import { ShieldCheck, Lock, User, Eye, EyeOff, ArrowRight, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 
 function LoginFormContent() {
@@ -52,12 +52,6 @@ function LoginFormContent() {
     }
   }
 
-  function fillQuickCredentials() {
-    setUsername('admin');
-    setPassword('admin123456');
-    setErrorMsg(null);
-  }
-
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col justify-between p-4 sm:p-6 text-slate-100 font-sans antialiased selection:bg-amber-400 selection:text-slate-950">
       {/* Top Simple Bar */}
@@ -85,20 +79,6 @@ function LoginFormContent() {
             </p>
           </div>
 
-          {/* Quick Credential Helper */}
-          <button
-            type="button"
-            onClick={fillQuickCredentials}
-            className="w-full py-2 px-3 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/80 text-[11px] text-slate-300 flex items-center justify-between transition-all cursor-pointer"
-          >
-            <span className="flex items-center gap-1.5 font-medium">
-              <KeyRound className="w-3.5 h-3.5 text-amber-400" /> Auto-fill Demo
-            </span>
-            <span className="text-slate-400 font-mono text-[11px]">
-              admin / ••••••••
-            </span>
-          </button>
-
           {/* Error Message */}
           {errorMsg && (
             <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-xs flex items-center gap-2 animate-fade-in">
@@ -116,6 +96,7 @@ function LoginFormContent() {
                 <input
                   type="text"
                   required
+                  autoComplete="username"
                   placeholder="admin"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
@@ -131,6 +112,7 @@ function LoginFormContent() {
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
+                  autoComplete="current-password"
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

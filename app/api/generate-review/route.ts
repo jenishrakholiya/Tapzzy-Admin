@@ -6,14 +6,18 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { businessName, rating, feedback } = body;
 
-    if (!businessName) {
-      return NextResponse.json({ error: 'businessName is required' }, { status: 400 });
+    if (!businessName || typeof businessName !== 'string') {
+      return NextResponse.json({ error: 'Valid businessName string is required' }, { status: 400 });
     }
 
+    const sanitizedBusinessName = businessName.trim().slice(0, 100);
+    const sanitizedFeedback = typeof feedback === 'string' ? feedback.trim().slice(0, 500) : '';
+    const safeRating = Math.min(5, Math.max(1, Math.round(Number(rating) || 5)));
+
     const suggestions = await generateReviewSuggestions(
-      businessName,
-      Number(rating) || 5,
-      String(feedback || '')
+      sanitizedBusinessName,
+      safeRating,
+      sanitizedFeedback
     );
 
     return NextResponse.json({ suggestions });
