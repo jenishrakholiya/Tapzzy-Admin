@@ -22,6 +22,14 @@ export async function middleware(request: NextRequest) {
   if (token) {
     const { valid } = await verifySessionToken(token);
     isAuthenticated = valid;
+  } else {
+    // Also check header directly in case of raw cookie string
+    const rawCookie = request.headers.get('cookie') || '';
+    const match = rawCookie.match(new RegExp(`${ADMIN_COOKIE_NAME}=([^;]+)`));
+    if (match) {
+      const { valid } = await verifySessionToken(match[1]);
+      isAuthenticated = valid;
+    }
   }
 
   // 1. Protect Admin API mutations (POST, PATCH, DELETE)

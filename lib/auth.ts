@@ -11,10 +11,16 @@ function getSecretKey(): string {
 }
 
 
+// Strict allowed admin credentials
+export const ALLOWED_ADMINS: Record<string, string> = {
+  jenish: 'Jenish##5529',
+  aryan: 'Aryan@123',
+};
+
 export function getAdminCredentials() {
   return {
-    username: process.env.ADMIN_USERNAME || 'admin',
-    password: process.env.ADMIN_PASSWORD || 'admin123456',
+    username: 'jenish',
+    password: ALLOWED_ADMINS.jenish,
   };
 }
 
@@ -34,16 +40,16 @@ function constantTimeCompare(a: string, b: string): boolean {
 
 export function validateAdminCredentials(usernameInput?: string, passwordInput?: string): boolean {
   if (!usernameInput || !passwordInput) return false;
-  const { username, password } = getAdminCredentials();
-  const usernameMatch = constantTimeCompare(
-    usernameInput.trim().toLowerCase(),
-    username.toLowerCase()
-  );
-  const passwordMatch = constantTimeCompare(
-    passwordInput.trim(),
-    password
-  );
-  return usernameMatch && passwordMatch;
+  const username = usernameInput.trim().toLowerCase();
+  const password = passwordInput.trim();
+
+  // Look up in allowed admins
+  const expectedPassword = ALLOWED_ADMINS[username];
+  if (!expectedPassword) {
+    return false;
+  }
+
+  return constantTimeCompare(password, expectedPassword);
 }
 
 // Convert string to Uint8Array (BufferSource)

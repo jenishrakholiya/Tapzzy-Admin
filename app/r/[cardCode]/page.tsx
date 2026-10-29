@@ -11,7 +11,13 @@ interface Props {
 export async function generateMetadata({ params }: Props) {
   const result = await getCardByCode(params.cardCode);
   if (!result) {
-    return { title: 'Card Review — Tapyy' };
+    return { title: 'Stand Review — Tapyy' };
+  }
+  if (!result.business || result.card.status === 'unassigned') {
+    return {
+      title: `Activate Stand ${params.cardCode} — Tapyy`,
+      description: `Link hardware stand ${params.cardCode} to your business review link.`,
+    };
   }
   return {
     title: `Review ${result.business.name} — Tapyy`,

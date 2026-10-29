@@ -97,7 +97,7 @@ function LoginFormContent() {
                   type="text"
                   required
                   autoComplete="username"
-                  placeholder="admin"
+                  placeholder="Enter username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="w-full pl-10 pr-4 py-2.5 bg-slate-800/60 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 transition-all font-medium"

@@ -1,5 +1,5 @@
 import { cache } from 'react';
-import { Business, PhysicalCard, ReviewSession, AnalyticsEvent, AIGeneration } from './types';
+import { Business, PhysicalCard, CardStatus, ReviewSession, AnalyticsEvent, AIGeneration } from './types';
 import { createClient } from './supabase/client';
 import { createAdminClient } from './supabase/admin';
 
@@ -162,7 +162,55 @@ function isApiKeyOrAuthError(errMessage?: string): boolean {
   );
 }
 
-export const getCardByCode = cache(async (cardCode: string): Promise<{ card: PhysicalCard; business: Business } | null> => {
+export function parseCard(card: PhysicalCard): PhysicalCard {
+  if (!card) return card;
+  const rawName = card.name || '';
+  const isDeleted = rawName.startsWith('[DELETED');
+  let cleanName = rawName;
+  let deletedAt: string | undefined = undefined;
+  let prevStatus: CardStatus = card.business_id ? 'active' : 'unassigned';
+
+  if (isDeleted) {
+    // 1. Pipe-delimited: [DELETED|status|isoDate] name or [DELETED|status] name
+    const pipeMatch = rawName.match(/^\[DELETED\|([^|\]]+)(?:\|([^\]]+))?\]\s*(.*)$/);
+    if (pipeMatch) {
+      const p1 = pipeMatch[1];
+      const p2 = pipeMatch[2];
+      cleanName = (pipeMatch[3] || '').trim() || 'Stand';
+
+      if (p1 === 'active' || p1 === 'unassigned' || p1 === 'inactive') {
+        prevStatus = (p1 === 'inactive' && card.business_id ? 'active' : p1) as CardStatus;
+        deletedAt = p2;
+      } else if (p2 === 'active' || p2 === 'unassigned' || p2 === 'inactive') {
+        prevStatus = (p2 === 'inactive' && card.business_id ? 'active' : p2) as CardStatus;
+        deletedAt = p1;
+      } else {
+        deletedAt = p1;
+      }
+    } else {
+      // 2. Colon-delimited or plain [DELETED] fallback
+      const tagEnd = rawName.indexOf(']');
+      cleanName = (tagEnd !== -1 ? rawName.slice(tagEnd + 1) : rawName.replace(/^\[DELETED\]\s*/, '')).trim() || 'Stand';
+      const insideTag = tagEnd !== -1 ? rawName.slice(0, tagEnd) : '';
+      if (insideTag.includes('unassigned')) {
+        prevStatus = 'unassigned';
+      } else if (insideTag.includes('active')) {
+        prevStatus = 'active';
+      }
+    }
+  }
+
+  return {
+    ...card,
+    name: cleanName,
+    raw_name: rawName,
+    is_deleted: isDeleted,
+    deleted_at: deletedAt,
+    previous_status: prevStatus,
+  };
+}
+
+export const getCardByCode = cache(async (cardCode: string): Promise<{ card: PhysicalCard; business: Business | null } | null> => {
   if (isLiveSupabaseConfigured()) {
     try {
       const adminClient = createAdminClient();
@@ -172,8 +220,12 @@ export const getCardByCode = cache(async (cardCode: string): Promise<{ card: Phy
         .eq('card_code', cardCode)
         .maybeSingle();
 
-      if (!cardErr && card && card.business) {
-        return { card, business: card.business };
+      if (!cardErr && card) {
+        if (typeof card.name === 'string' && card.name.startsWith('[DELETED')) {
+          // Soft-deleted stand is inaccessible to customers
+          return null;
+        }
+        return { card: parseCard(card), business: card.business || null };
       }
     } catch {
       // Fallback
@@ -187,8 +239,12 @@ export const getCardByCode = cache(async (cardCode: string): Promise<{ card: Phy
         .eq('card_code', cardCode)
         .maybeSingle();
 
-      if (!cardErr && card && card.business) {
-        return { card, business: card.business };
+      if (!cardErr && card) {
+        if (typeof card.name === 'string' && card.name.startsWith('[DELETED')) {
+          // Soft-deleted stand is inaccessible to customers
+          return null;
+        }
+        return { card: parseCard(card), business: card.business || null };
       }
     } catch {
       // Fallback
@@ -196,13 +252,45 @@ export const getCardByCode = cache(async (cardCode: string): Promise<{ card: Phy
   }
 
   const cards = getStoredCards();
-  const card = cards.find((c) => c.card_code === cardCode);
-  if (!card) return null;
+  const rawCard = cards.find((c) => c.card_code === cardCode);
+  if (!rawCard) return null;
+  const card = parseCard(rawCard);
+  if (card.is_deleted) return null;
   const businesses = getStoredBusinesses();
-  const business = businesses.find((b) => b.id === card.business_id) || card.business;
-  if (!business) return null;
+  const business = businesses.find((b) => b.id === card.business_id) || card.business || null;
   return { card, business };
 });
+
+export async function getAllCards(): Promise<PhysicalCard[]> {
+  if (isLiveSupabaseConfigured()) {
+    // 1. Try server-side API route (uses SUPABASE_SERVICE_ROLE_KEY to bypass RLS)
+    try {
+      const res = await fetch('/api/admin/cards', { cache: 'no-store' });
+      const json = await res.json();
+      if (res.ok && Array.isArray(json.cards)) {
+        return json.cards.map((c: PhysicalCard) => parseCard(c));
+      }
+    } catch {
+      // Fallback
+    }
+
+    // 2. Direct browser client fallback
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('cards')
+        .select('*, business:businesses(*)')
+        .order('created_at', { ascending: false });
+      if (!error && Array.isArray(data)) {
+        return data.map((c: PhysicalCard) => parseCard(c));
+      }
+    } catch {
+      // Fallback
+    }
+  }
+
+  return getStoredCards().map((c) => parseCard(c));
+}
 
 export async function getAllBusinesses(): Promise<Business[]> {
   if (isLiveSupabaseConfigured()) {
@@ -228,35 +316,6 @@ export async function getAllBusinesses(): Promise<Business[]> {
   }
 
   return getStoredBusinesses();
-}
-
-export async function getAllCards(): Promise<PhysicalCard[]> {
-  if (isLiveSupabaseConfigured()) {
-    // 1. Try server-side API route (uses SUPABASE_SERVICE_ROLE_KEY to bypass RLS)
-    try {
-      const res = await fetch('/api/admin/cards', { cache: 'no-store' });
-      const json = await res.json();
-      if (res.ok && Array.isArray(json.cards)) {
-        return json.cards;
-      }
-    } catch {
-      // Fallback
-    }
-
-    // 2. Direct browser client fallback
-    try {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from('cards')
-        .select('*, business:businesses(*)')
-        .order('created_at', { ascending: false });
-      if (!error && Array.isArray(data)) return data;
-    } catch {
-      // Fallback
-    }
-  }
-
-  return getStoredCards();
 }
 
 export async function createBusiness(name: string, logo_url: string, google_review_url: string): Promise<Business> {
@@ -409,6 +468,93 @@ export async function issuePhysicalCard(business_id: string, card_name: string, 
   cardsList.unshift(newCard);
   saveStoredCards(cardsList);
   return newCard;
+}
+
+export async function batchGenerateCards(count: number = 10, prefix = 'TAP-'): Promise<PhysicalCard[]> {
+  const cardsList = getStoredCards();
+  const newCards: PhysicalCard[] = [];
+  const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+
+  for (let i = 0; i < count; i++) {
+    let suffix = '';
+    for (let j = 0; j < 5; j++) {
+      suffix += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    const code = `${prefix}${suffix}`;
+    const newCard: PhysicalCard = {
+      id: `card-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 5)}`,
+      business_id: null,
+      card_code: code,
+      name: `Blank Stand #${cardsList.length + i + 1}`,
+      status: 'unassigned',
+      created_at: new Date().toISOString(),
+    };
+    newCards.push(newCard);
+  }
+
+  if (isLiveSupabaseConfigured()) {
+    try {
+      const res = await fetch('/api/admin/cards/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cards: newCards }),
+      });
+      const json = await res.json();
+      if (res.ok && Array.isArray(json.cards)) {
+        const updatedList = [...json.cards, ...cardsList];
+        saveStoredCards(updatedList);
+        return json.cards;
+      }
+    } catch (err) {
+      console.warn('Supabase batch insert error, falling back to local storage:', err);
+    }
+  }
+
+  const updatedList = [...newCards, ...cardsList];
+  saveStoredCards(updatedList);
+  return newCards;
+}
+
+export async function activateCard(
+  cardCode: string,
+  payload: {
+    business_id?: string;
+    business_name?: string;
+    google_review_url?: string;
+    placement_name?: string;
+  }
+): Promise<{ card: PhysicalCard; business: Business }> {
+  let targetBusiness: Business | null = null;
+  const businesses = await getAllBusinesses();
+
+  if (payload.business_id) {
+    targetBusiness = businesses.find((b) => b.id === payload.business_id) || null;
+  }
+
+  if (!targetBusiness && payload.business_name?.trim()) {
+    const defaultUrl =
+      payload.google_review_url?.trim() ||
+      `https://www.google.com/search?q=${encodeURIComponent(payload.business_name.trim())}+Google+reviews`;
+    targetBusiness = await createBusiness(payload.business_name.trim(), '🏢', defaultUrl);
+  }
+
+  if (!targetBusiness) {
+    throw new Error('Business information is required to activate stand.');
+  }
+
+  const cards = await getAllCards();
+  const card = cards.find((c) => c.card_code === cardCode);
+  if (!card) {
+    throw new Error(`Stand code ${cardCode} was not found.`);
+  }
+
+  const updatedCard = await updateCard(card.id, {
+    business_id: targetBusiness.id,
+    name: payload.placement_name?.trim() || 'Counter Stand #1',
+    status: 'active',
+  });
+
+  return { card: { ...updatedCard, business: targetBusiness }, business: targetBusiness };
 }
 
 export async function getReviewsForBusiness(business_id?: string): Promise<ReviewSession[]> {
@@ -711,6 +857,9 @@ export async function updateCard(id: string, updates: Partial<PhysicalCard>): Pr
     if (updates.business_id) {
       const businesses = getStoredBusinesses();
       updated.business = businesses.find((b) => b.id === updates.business_id);
+    } else if (updates.business_id === null) {
+      updated.business_id = null;
+      updated.business = undefined;
     }
     cardsList[index] = updated;
     saveStoredCards(cardsList);
@@ -718,6 +867,14 @@ export async function updateCard(id: string, updates: Partial<PhysicalCard>): Pr
   }
 
   throw new Error(`Card with ID ${id} not found.`);
+}
+
+export async function resetCardToBatch(id: string): Promise<PhysicalCard> {
+  return await updateCard(id, {
+    business_id: null,
+    status: 'unassigned',
+    name: 'Blank Stand',
+  });
 }
 
 export async function deleteCard(id: string): Promise<boolean> {
@@ -730,20 +887,123 @@ export async function deleteCard(id: string): Promise<boolean> {
       if (res.ok && json.success) {
         return true;
       }
-      if (json.error) {
-        if (isApiKeyOrAuthError(json.error)) {
-          console.warn('Supabase auth error during card delete:', json.error);
-        } else if (!json.error.includes('RLS') && !json.error.includes('policy')) {
-          throw new Error(json.error);
-        }
+      if (json.error && !isApiKeyOrAuthError(json.error) && !json.error.includes('RLS')) {
+        throw new Error(json.error);
       }
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        if (isApiKeyOrAuthError(err.message)) {
-          console.warn('API key error caught during card delete:', err.message);
-        } else if (!err.message.includes('fetch')) {
-          throw err;
-        }
+      if (err instanceof Error && !isApiKeyOrAuthError(err.message) && !err.message.includes('fetch')) {
+        throw err;
+      }
+    }
+
+    try {
+      const supabase = createClient();
+      const { data: existing } = await supabase.from('cards').select('*').eq('id', id).single();
+      if (existing) {
+        const parsed = parseCard(existing);
+        const validStatus = ['active', 'inactive', 'unassigned'].includes(existing.status)
+          ? existing.status
+          : (existing.business_id ? 'active' : 'unassigned');
+        const tag = `[DELETED|${validStatus}|${new Date().toISOString()}] ${parsed.name}`;
+        const { error } = await supabase
+          .from('cards')
+          .update({ name: tag, status: 'inactive' })
+          .eq('id', id);
+        if (!error) return true;
+      }
+    } catch (err: unknown) {
+      console.warn('Direct browser soft-delete fallback failed:', err);
+    }
+  }
+
+  // Local storage soft delete fallback
+  const cardsList = getStoredCards();
+  const index = cardsList.findIndex((c) => c.id === id);
+  if (index !== -1) {
+    const existing = cardsList[index];
+    const parsed = parseCard(existing);
+    const validStatus = ['active', 'inactive', 'unassigned'].includes(existing.status)
+      ? existing.status
+      : (existing.business_id ? 'active' : 'unassigned');
+    const tag = `[DELETED|${validStatus}|${new Date().toISOString()}] ${parsed.name}`;
+    cardsList[index] = { ...existing, name: tag, status: 'inactive' };
+    saveStoredCards(cardsList);
+    return true;
+  }
+  return false;
+}
+
+export async function restoreCard(id: string): Promise<PhysicalCard> {
+  if (isLiveSupabaseConfigured()) {
+    try {
+      const res = await fetch('/api/admin/cards', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, action: 'restore' }),
+      });
+      const json = await res.json();
+      if (res.ok && json.card) {
+        return parseCard(json.card);
+      }
+      if (json.error && !isApiKeyOrAuthError(json.error) && !json.error.includes('RLS')) {
+        throw new Error(json.error);
+      }
+    } catch (err: unknown) {
+      if (err instanceof Error && !isApiKeyOrAuthError(err.message) && !err.message.includes('fetch')) {
+        throw err;
+      }
+    }
+
+    try {
+      const supabase = createClient();
+      const { data: existing } = await supabase.from('cards').select('*').eq('id', id).single();
+      if (existing) {
+        const parsed = parseCard(existing);
+        const { data: restored, error } = await supabase
+          .from('cards')
+          .update({ name: parsed.name, status: parsed.previous_status || 'active' })
+          .eq('id', id)
+          .select('*, business:businesses(*)')
+          .single();
+
+        if (!error && restored) return parseCard(restored);
+      }
+    } catch (err: unknown) {
+      console.warn('Direct browser restore fallback failed:', err);
+    }
+  }
+
+  // Local storage restore fallback
+  const cardsList = getStoredCards();
+  const index = cardsList.findIndex((c) => c.id === id);
+  if (index !== -1) {
+    const existing = cardsList[index];
+    const parsed = parseCard(existing);
+    const restored = { ...existing, name: parsed.name, status: parsed.previous_status || (existing.business_id ? 'active' : 'unassigned') };
+    cardsList[index] = restored;
+    saveStoredCards(cardsList);
+    return parseCard(restored);
+  }
+
+  throw new Error(`Stand with ID ${id} not found.`);
+}
+
+export async function hardDeleteCard(id: string): Promise<boolean> {
+  if (isLiveSupabaseConfigured()) {
+    try {
+      const res = await fetch(`/api/admin/cards?id=${encodeURIComponent(id)}&hard=true`, {
+        method: 'DELETE',
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        return true;
+      }
+      if (json.error && !isApiKeyOrAuthError(json.error) && !json.error.includes('RLS')) {
+        throw new Error(json.error);
+      }
+    } catch (err: unknown) {
+      if (err instanceof Error && !isApiKeyOrAuthError(err.message) && !err.message.includes('fetch')) {
+        throw err;
       }
     }
 
@@ -751,21 +1011,8 @@ export async function deleteCard(id: string): Promise<boolean> {
       const supabase = createClient();
       const { error } = await supabase.from('cards').delete().eq('id', id);
       if (!error) return true;
-
-      if (error) {
-        if (isApiKeyOrAuthError(error.message)) {
-          console.warn('Supabase anon key error during card delete:', error.message);
-        } else {
-          console.error('Supabase error deleting card:', error);
-          throw new Error(`Database Error (${error.code || 'RLS'}): ${error.message}`);
-        }
-      }
     } catch (err: unknown) {
-      if (err instanceof Error && isApiKeyOrAuthError(err.message)) {
-        console.warn('Browser client API key error:', err.message);
-      } else if (err instanceof Error) {
-        throw err;
-      }
+      console.warn('Direct browser hard-delete fallback failed:', err);
     }
   }
 
@@ -777,4 +1024,59 @@ export async function deleteCard(id: string): Promise<boolean> {
     return true;
   }
   return false;
+}
+
+export async function emptyTrash(): Promise<boolean> {
+  if (isLiveSupabaseConfigured()) {
+    try {
+      const res = await fetch('/api/admin/cards', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'empty_trash' }),
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        return true;
+      }
+    } catch (err) {
+      console.warn('API error during empty trash:', err);
+    }
+  }
+
+  const cardsList = getStoredCards().filter((c) => !(c.name || '').startsWith('[DELETED'));
+  saveStoredCards(cardsList);
+  return true;
+}
+
+export async function restoreAllTrash(): Promise<number> {
+  if (isLiveSupabaseConfigured()) {
+    try {
+      const res = await fetch('/api/admin/cards', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'restore_all' }),
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        return json.count || 0;
+      }
+    } catch (err) {
+      console.warn('API error during restore all:', err);
+    }
+  }
+
+  const rawCards = getStoredCards();
+  let count = 0;
+  const updatedList = rawCards.map((c) => {
+    if ((c.name || '').startsWith('[DELETED')) {
+      const match = c.name.match(/^\[DELETED(?::([^:]+))?(?::([^\]]+))?\]\s*(.*)$/);
+      const cleanName = match ? match[3] : c.name.replace(/^\[DELETED\]\s*/, '');
+      const prevStatus = (match && (match[2] as CardStatus)) || (c.business_id ? 'active' : 'unassigned');
+      count++;
+      return { ...c, name: cleanName, status: prevStatus };
+    }
+    return c;
+  });
+  saveStoredCards(updatedList);
+  return count;
 }

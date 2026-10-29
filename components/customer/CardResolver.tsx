@@ -4,23 +4,24 @@ import React, { useEffect, useState } from 'react';
 import { Business, PhysicalCard } from '@/lib/types';
 import { getCardByCode, recordEvent } from '@/lib/data-service';
 import ReviewFlow from './ReviewFlow';
+import StandActivation from './StandActivation';
 import { AlertTriangle, Power, ArrowLeft, Eye } from 'lucide-react';
 import Link from 'next/link';
 
 interface Props {
   cardCode: string;
-  initialResult?: { card: PhysicalCard; business: Business } | null;
+  initialResult?: { card: PhysicalCard; business: Business | null } | null;
 }
 
 export default function CardResolver({ cardCode, initialResult }: Props) {
-  const [result, setResult] = useState<{ card: PhysicalCard; business: Business } | null>(initialResult || null);
+  const [result, setResult] = useState<{ card: PhysicalCard; business: Business | null } | null>(initialResult || null);
   const [loading, setLoading] = useState<boolean>(!initialResult);
   const [bypassInactive, setBypassInactive] = useState<boolean>(false);
 
   useEffect(() => {
     if (!initialResult) {
       resolveCard();
-    } else {
+    } else if (initialResult.business) {
       recordEvent('nfc_tap', initialResult.business.id, initialResult.card.id, undefined, { card_code: cardCode });
     }
   }, [cardCode, initialResult]);
@@ -31,7 +32,9 @@ export default function CardResolver({ cardCode, initialResult }: Props) {
       const res = await getCardByCode(cardCode);
       if (res) {
         setResult(res);
-        recordEvent('nfc_tap', res.business.id, res.card.id, undefined, { card_code: cardCode });
+        if (res.business) {
+          recordEvent('nfc_tap', res.business.id, res.card.id, undefined, { card_code: cardCode });
+        }
       }
     } catch (err) {
       console.error('Error resolving card:', err);
@@ -42,7 +45,7 @@ export default function CardResolver({ cardCode, initialResult }: Props) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#f1f1ee] p-4 flex items-center justify-center animate-fade-in">
+      <div className="min-h-screen bg-[#f1f1ee] p-4 flex items-center justify-center animate-fade-in font-sans">
         <div className="w-full max-w-[360px] bg-white rounded-3xl p-8 text-center shadow-xl border border-gray-200/80 flex flex-col items-center gap-3">
           <div className="w-12 h-12 rounded-2xl bg-slate-950 text-amber-400 flex items-center justify-center font-black text-xl shadow-xs">
             T
@@ -56,7 +59,7 @@ export default function CardResolver({ cardCode, initialResult }: Props) {
 
   if (!result) {
     return (
-      <div className="min-h-screen bg-[#f1f1ee] p-4 flex items-center justify-center animate-fade-in">
+      <div className="min-h-screen bg-[#f1f1ee] p-4 flex items-center justify-center animate-fade-in font-sans">
         <div className="w-full max-w-[360px] bg-white rounded-3xl p-7 text-center shadow-xl border border-gray-200/80 space-y-3">
           <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mx-auto">
             <AlertTriangle className="w-6 h-6" />
@@ -81,9 +84,21 @@ export default function CardResolver({ cardCode, initialResult }: Props) {
     );
   }
 
+  // If card is unassigned or has no linked business yet, show Stand Activation Page!
+  if (result.card.status === 'unassigned' || !result.business) {
+    return (
+      <StandActivation
+        card={result.card}
+        onActivated={(activatedCard, activatedBiz) => {
+          setResult({ card: activatedCard, business: activatedBiz });
+        }}
+      />
+    );
+  }
+
   if (result.card.status === 'inactive' && !bypassInactive) {
     return (
-      <div className="min-h-screen bg-[#f1f1ee] p-4 flex items-center justify-center animate-fade-in">
+      <div className="min-h-screen bg-[#f1f1ee] p-4 flex items-center justify-center animate-fade-in font-sans">
         <div className="w-full max-w-[360px] bg-white rounded-3xl p-7 text-center shadow-xl border border-gray-200/80 space-y-3">
           <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mx-auto">
             <Power className="w-6 h-6" />

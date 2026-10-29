@@ -382,15 +382,15 @@ export default function AdminBusinessesPage() {
 
       {/* Edit Modal */}
       {editingBiz && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-5 space-y-3.5 shadow-2xl animate-fade-in max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-4 sm:p-5 space-y-3.5 shadow-2xl animate-fade-in max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
               <h3 className="text-sm font-black text-gray-900 flex items-center gap-2 font-heading">
                 <Edit2 className="w-3.5 h-3.5 text-blue-600" /> Edit Business
               </h3>
               <button
                 onClick={() => setEditingBiz(null)}
-                className="text-gray-400 hover:text-gray-600 p-0.5"
+                className="text-gray-400 hover:text-gray-600 p-1 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -434,27 +434,27 @@ export default function AdminBusinessesPage() {
                 <select
                   value={editStatus}
                   onChange={(e) => setEditStatus(e.target.value as BusinessStatus)}
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:border-black font-bold capitalize text-gray-900"
+                  className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:border-black font-bold capitalize text-gray-900 cursor-pointer"
                 >
                   <option value="active">Active</option>
                   <option value="suspended">Suspended</option>
                 </select>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
+              <div className="flex items-center justify-end gap-2 pt-2 flex-wrap sm:flex-nowrap">
                 <button
                   type="button"
                   onClick={() => setEditingBiz(null)}
-                  className="px-3 py-1.5 text-xs font-bold text-gray-500 hover:bg-gray-100 rounded-lg"
+                  className="flex-1 sm:flex-initial text-center px-4 py-2 text-xs font-bold text-gray-500 hover:bg-gray-100 rounded-xl cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSavingEdit}
-                  className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition-all"
+                  className="flex-1 sm:flex-initial text-center justify-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-all cursor-pointer"
                 >
-                  {isSavingEdit ? 'Saving...' : 'Save'}
+                  {isSavingEdit ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
             </form>
@@ -464,24 +464,24 @@ export default function AdminBusinessesPage() {
 
       {/* Delete Confirmation Modal */}
       {deletingBiz && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-5 space-y-3 shadow-2xl animate-fade-in text-center">
-            <div className="w-10 h-10 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mx-auto">
-              <Trash2 className="w-5 h-5" />
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-4 sm:p-5 space-y-3.5 shadow-2xl animate-fade-in text-center max-h-[92vh] overflow-y-auto">
+            <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mx-auto shadow-xs">
+              <Trash2 className="w-6 h-6" />
             </div>
 
             <div className="space-y-1">
               <h3 className="text-sm font-black text-gray-900 font-heading">Delete Business?</h3>
-              <p className="text-xs text-gray-500">
-                Are you sure you want to delete <strong>{deletingBiz.name}</strong>?
+              <p className="text-xs text-gray-500 leading-relaxed">
+                Are you sure you want to delete <strong>{deletingBiz.name}</strong>? All associated review stands will be reset.
               </p>
             </div>
 
-            <div className="flex items-center gap-2 pt-2">
+            <div className="flex items-center gap-2 pt-1">
               <button
                 type="button"
                 onClick={() => setDeletingBiz(null)}
-                className="px-3 py-2 text-xs font-bold text-gray-500 hover:bg-gray-100 rounded-xl flex-1"
+                className="px-3.5 py-2.5 text-xs font-bold text-gray-500 hover:bg-gray-100 rounded-xl flex-1 cursor-pointer"
               >
                 Cancel
               </button>
@@ -489,7 +489,7 @@ export default function AdminBusinessesPage() {
                 type="button"
                 onClick={handleDeleteConfirm}
                 disabled={isDeleting}
-                className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl flex-1 transition-all"
+                className="px-3.5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl flex-1 transition-all cursor-pointer shadow-xs"
               >
                 {isDeleting ? 'Deleting...' : 'Delete'}
               </button>

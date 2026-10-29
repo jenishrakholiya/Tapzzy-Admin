@@ -108,7 +108,7 @@ export default function AdminSidebar() {
         </div>
 
         {/* Visible Horizontal Navigation Bar (Always Open & Shown at Start) */}
-        <nav className="flex items-center gap-1.5 px-3 py-2 overflow-x-auto text-xs bg-slate-950/40">
+        <nav className="flex items-center gap-1.5 px-3 py-2 overflow-x-auto text-xs bg-slate-950/40 scrollbar-none touch-pan-x">
           {navItems.map((item) => {
             const active = isItemActive(item);
             const Icon = item.icon;
@@ -116,7 +116,7 @@ export default function AdminSidebar() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg whitespace-nowrap text-xs font-semibold transition-all shrink-0 ${
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl whitespace-nowrap text-xs font-semibold transition-all shrink-0 active:scale-95 ${
                   active
                     ? 'bg-amber-400 text-slate-950 shadow-xs font-bold'
                     : 'text-slate-300 hover:bg-slate-800 hover:text-white'

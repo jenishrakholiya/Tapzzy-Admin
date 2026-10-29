@@ -151,3 +151,11 @@ h1, h2, h3, h4, .font-heading {
     transform: rotate(360deg);
   }
 }
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

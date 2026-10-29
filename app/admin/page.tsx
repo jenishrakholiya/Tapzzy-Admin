@@ -150,7 +150,10 @@ export default async function AdminOverviewPage() {
           ) : (
             <div className="divide-y divide-gray-100">
               {cards.slice(0, 5).map((card) => {
-                const associatedBiz = card.business?.name || businessMap.get(card.business_id)?.name || 'Assigned';
+                const associatedBiz =
+                  card.business?.name ||
+                  (card.business_id ? businessMap.get(card.business_id)?.name : null) ||
+                  (card.status === 'unassigned' ? 'Unassigned (Batch Inventory)' : 'Assigned');
                 return (
                   <div key={card.id} className="py-2.5 flex items-center justify-between gap-3">
                     <div className="min-w-0">

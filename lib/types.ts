@@ -23,12 +23,16 @@ export interface Profile {
 
 export interface PhysicalCard {
   id: string;
-  business_id: string;
+  business_id?: string | null;
   card_code: string;
   name: string;
   status: CardStatus;
   created_at: string;
   business?: Business;
+  is_deleted?: boolean;
+  deleted_at?: string;
+  previous_status?: CardStatus;
+  raw_name?: string;
 }
 
 export interface ReviewSession {
