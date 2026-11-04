@@ -93,6 +93,8 @@ export default function ReviewFlow({ card, business }: Props) {
           businessName: business.name,
           rating: rating || 5,
           feedback: feedbackText,
+          tags: selectedTags,
+          seed: Math.random().toString(36).substring(7),
         }),
       });
 
@@ -104,11 +106,18 @@ export default function ReviewFlow({ card, business }: Props) {
         throw new Error('Fallback needed');
       }
     } catch {
-      const fallbackList = [
-        `Outstanding ${rating}-star experience at ${business.name}! ${feedbackText.trim() || 'Service was prompt and friendly.'} Highly recommended!`,
-        `Really enjoyed my visit to ${business.name}. Everything was handled smoothly and professionally. Great atmosphere!`,
-        `Top quality and welcoming service at ${business.name}. Definitely glad I stopped by and will certainly return.`
-      ];
+      const details = [feedbackText.trim(), ...selectedTags].filter(Boolean).join(', ');
+      const fallbackList = details
+        ? [
+            `Stopped by ${business.name} and had a great visit. ${details}. Everything was handled smoothly!`,
+            `Really pleased with ${business.name}. ${details}. Appreciate the good experience.`,
+            `Nice experience at ${business.name}. ${details}. Glad I came by.`
+          ]
+        : [
+            `Had a really good visit to ${business.name}. Everything was prompt, easy, and pleasant.`,
+            `Smooth and straightforward experience at ${business.name}. Exactly what you look for.`,
+            `Quick, pleasant, and well-managed visit at ${business.name}. Glad I stopped in.`
+          ];
       setSuggestions(fallbackList);
       setSelectedReview(fallbackList[0]);
     } finally {
@@ -128,7 +137,9 @@ export default function ReviewFlow({ card, business }: Props) {
         body: JSON.stringify({
           businessName: business.name,
           rating: rating || 5,
-          feedback: feedbackText + ' (fresh variation)',
+          feedback: feedbackText,
+          tags: selectedTags,
+          seed: Math.random().toString(36).substring(7),
         }),
       });
       const data = await res.json();
@@ -202,7 +213,7 @@ export default function ReviewFlow({ card, business }: Props) {
               T
             </div>
             <span className="font-extrabold tracking-tight text-sm text-gray-900 font-heading">
-              tapyy
+              tapzzy
             </span>
           </div>
 
@@ -591,7 +602,7 @@ export default function ReviewFlow({ card, business }: Props) {
 
         {/* Minimal Footer */}
         <footer className="p-3 text-center bg-gray-50 border-t border-gray-100 text-[10px] text-gray-400 font-medium">
-          Powered by <strong className="text-gray-700">Tapyy</strong>
+          Powered by <strong className="text-gray-700">Tapzzy</strong>
         </footer>
 
         {/* Toast */}

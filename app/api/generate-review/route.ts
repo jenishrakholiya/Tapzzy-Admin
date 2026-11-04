@@ -4,7 +4,7 @@ import { generateReviewSuggestions } from '@/lib/ai';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { businessName, rating, feedback } = body;
+    const { businessName, rating, feedback, tags, seed } = body;
 
     if (!businessName || typeof businessName !== 'string') {
       return NextResponse.json({ error: 'Valid businessName string is required' }, { status: 400 });
@@ -13,11 +13,17 @@ export async function POST(request: Request) {
     const sanitizedBusinessName = businessName.trim().slice(0, 100);
     const sanitizedFeedback = typeof feedback === 'string' ? feedback.trim().slice(0, 500) : '';
     const safeRating = Math.min(5, Math.max(1, Math.round(Number(rating) || 5)));
+    const cleanTags = Array.isArray(tags)
+      ? tags.map((t) => String(t).trim().slice(0, 50)).filter((t) => t.length > 0)
+      : [];
+    const sanitizedSeed = typeof seed === 'string' ? seed.slice(0, 32) : undefined;
 
     const suggestions = await generateReviewSuggestions(
       sanitizedBusinessName,
       safeRating,
-      sanitizedFeedback
+      sanitizedFeedback,
+      cleanTags,
+      sanitizedSeed
     );
 
     return NextResponse.json({ suggestions });
@@ -27,9 +33,9 @@ export async function POST(request: Request) {
       {
         error: 'Failed to generate review suggestions',
         suggestions: [
-          'Great service and lovely atmosphere! Highly recommended.',
-          'Really enjoyed my experience here. Will definitely come back.',
-          'Prompt, friendly, and great attention to detail.'
+          'Everything was prompt and handled smoothly. Glad I came by.',
+          'Really pleased with the experience. Helpful staff and nice vibe.',
+          'Very solid visit. Easy, straightforward, and pleasant.'
         ],
       },
       { status: 500 }

@@ -198,8 +198,8 @@ export async function PATCH(req: Request) {
     }
 
     // Standard card update
-    if (!id) {
-      return NextResponse.json({ error: 'Card ID is required for update' }, { status: 400 });
+    if (!id && !card_code) {
+      return NextResponse.json({ error: 'Card ID or card_code is required for update' }, { status: 400 });
     }
 
     const updates: Record<string, unknown> = {};
@@ -208,15 +208,43 @@ export async function PATCH(req: Request) {
     if (card_code !== undefined) updates.card_code = card_code;
     if (status !== undefined) updates.status = status;
 
-    const { data, error } = await supabase
-      .from('cards')
-      .update(updates)
-      .eq('id', id)
+    const isUuid = id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+    let query = supabase.from('cards').update(updates);
+    if (isUuid) {
+      query = query.eq('id', id);
+    } else if (card_code) {
+      query = query.ilike('card_code', card_code);
+    } else {
+      return NextResponse.json({ error: 'Valid UUID or card_code is required for update' }, { status: 400 });
+    }
+
+    const { data, error } = await query
       .select('*, business:businesses(*)')
-      .single();
+      .maybeSingle();
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    if (!data) {
+      // If card was generated offline/locally and not yet in Supabase, insert it
+      const codeToUse = card_code || updates.card_code || `TAP-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+      const { data: inserted, error: insertErr } = await supabase
+        .from('cards')
+        .insert([{
+          card_code: codeToUse,
+          name: name || 'Counter Stand #1',
+          status: status || 'active',
+          business_id: business_id || null,
+        }])
+        .select('*, business:businesses(*)')
+        .single();
+
+      if (insertErr) {
+        return NextResponse.json({ error: insertErr.message }, { status: 400 });
+      }
+      return NextResponse.json({ card: inserted });
     }
 
     return NextResponse.json({ card: data });

@@ -114,8 +114,10 @@ export default function AdminCardsPage() {
 
   // Copy Feedback State
   const [copiedCardId, setCopiedCardId] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     loadData();
   }, []);
 
@@ -204,14 +206,21 @@ export default function AdminCardsPage() {
   function openAssignModal(card: PhysicalCard) {
     setAssignModalCard(card);
     setAssignPlacement(card.name && !card.name.startsWith('Blank Stand') ? card.name : 'Counter Stand #1');
-    if (businesses.length > 0 && !assignBizId) {
+    setErrorMsg(null);
+    const hasValidBiz = businesses.some((b) => b.id === assignBizId);
+    if ((!assignBizId || !hasValidBiz) && businesses.length > 0) {
       setAssignBizId(businesses[0].id);
     }
   }
 
   async function handleDirectAssign(e: React.FormEvent) {
     e.preventDefault();
-    if (!assignModalCard || !assignBizId) return;
+    if (!assignModalCard) return;
+
+    if (!assignBizId) {
+      setErrorMsg('Please select a business client to assign this stand to.');
+      return;
+    }
 
     setIsAssigning(true);
     setMessage(null);
@@ -221,6 +230,7 @@ export default function AdminCardsPage() {
       const targetBiz = businesses.find((b) => b.id === assignBizId);
       await updateCard(assignModalCard.id, {
         business_id: assignBizId,
+        card_code: assignModalCard.card_code,
         name: assignPlacement.trim() || 'Counter Stand #1',
         status: 'active',
       });
@@ -393,7 +403,7 @@ export default function AdminCardsPage() {
   }
 
   function copyCardUrl(card: PhysicalCard) {
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://tapyy.com';
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://tapzzy-admin.vercel.app';
     const url = `${origin}/r/${card.card_code}`;
     navigator.clipboard.writeText(url);
     setCopiedCardId(card.id);
@@ -492,10 +502,8 @@ export default function AdminCardsPage() {
   });
 
   const previewCode = customCode || 'TAP-PREVIEW';
-  const previewUrl =
-    typeof window !== 'undefined'
-      ? `${window.location.origin}/r/${previewCode}`
-      : `https://tapyy.com/r/${previewCode}`;
+  const siteOrigin = mounted && typeof window !== 'undefined' ? window.location.origin : 'https://tapzzy-admin.vercel.app';
+  const previewUrl = `${siteOrigin}/r/${previewCode}`;
 
   return (
     <div className="space-y-6 animate-fade-in font-sans">
@@ -783,10 +791,7 @@ export default function AdminCardsPage() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
                 {filteredUnassignedCards.map((card) => {
-                  const url =
-                    typeof window !== 'undefined'
-                      ? `${window.location.origin}/r/${card.card_code}`
-                      : `https://tapyy.com/r/${card.card_code}`;
+                  const url = `${siteOrigin}/r/${card.card_code}`;
                   const isCopied = copiedCardId === card.id;
 
                   return (
@@ -926,7 +931,7 @@ export default function AdminCardsPage() {
                 }`}
               >
                 <div className="w-full flex items-center justify-between border-b border-white/10 pb-1.5">
-                  <span className="text-xs font-black">tapyy</span>
+                  <span className="text-xs font-black">tapzzy</span>
                   <span className="text-[9px] font-mono bg-white/10 text-amber-300 px-1.5 py-0.5 rounded font-bold">
                     {previewCode}
                   </span>
@@ -1108,10 +1113,7 @@ export default function AdminCardsPage() {
                 </div>
               ) : (
                 filteredAssignedCards.map((card) => {
-                  const url =
-                    typeof window !== 'undefined'
-                      ? `${window.location.origin}/r/${card.card_code}`
-                      : `https://tapyy.com/r/${card.card_code}`;
+                  const url = `${siteOrigin}/r/${card.card_code}`;
                   const isCopied = copiedCardId === card.id;
 
                   return (
@@ -1402,20 +1404,36 @@ export default function AdminCardsPage() {
             </div>
 
             <form onSubmit={handleDirectAssign} className="space-y-3.5">
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Target Business Client</label>
-                <select
-                  value={assignBizId}
-                  onChange={(e) => setAssignBizId(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:border-black font-semibold text-gray-900 cursor-pointer"
-                >
-                  {businesses.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name} ({b.slug})
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {errorMsg && (
+                <div className="p-3 bg-red-50 border border-red-200 text-red-800 rounded-xl text-xs font-semibold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                  <span>{errorMsg}</span>
+                </div>
+              )}
+
+              {businesses.length === 0 ? (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 space-y-1">
+                  <p className="font-bold">No businesses registered yet.</p>
+                  <a href="/admin/businesses" className="text-blue-600 underline font-semibold">
+                    Click here to create a business in Admin first
+                  </a>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Target Business Client</label>
+                  <select
+                    value={assignBizId}
+                    onChange={(e) => setAssignBizId(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:border-black font-semibold text-gray-900 cursor-pointer"
+                  >
+                    {businesses.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name} ({b.slug})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">Placement / Stand Label</label>
@@ -1509,10 +1527,7 @@ export default function AdminCardsPage() {
 
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 print:grid-cols-3">
               {unassignedCards.map((card) => {
-                const url =
-                  typeof window !== 'undefined'
-                    ? `${window.location.origin}/r/${card.card_code}`
-                    : `https://tapyy.com/r/${card.card_code}`;
+                const url = `${siteOrigin}/r/${card.card_code}`;
 
                 return (
                   <div

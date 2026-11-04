@@ -83,7 +83,7 @@ export default function AdminSidebar() {
             <div className="w-6 h-6 rounded-md bg-amber-400 text-slate-950 flex items-center justify-center font-black text-xs">
               T
             </div>
-            <span className="font-extrabold text-sm tracking-tight font-heading">Tapyy Admin</span>
+            <span className="font-extrabold text-sm tracking-tight font-heading">Tapzzy Admin</span>
           </Link>
 
           <div className="flex items-center gap-2">
@@ -139,7 +139,7 @@ export default function AdminSidebar() {
               T
             </div>
             <span className="font-extrabold text-base tracking-tight font-heading">
-              Tapyy Admin
+              Tapzzy Admin
             </span>
           </div>
         </div>

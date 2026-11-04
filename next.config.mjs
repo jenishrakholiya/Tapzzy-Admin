@@ -19,7 +19,9 @@ const nextConfig = {
     minimumCacheTTL: 86400,
   },
   experimental: {
-    optimizePackageImports: ['lucide-react', '@google/generative-ai', 'openai'],
+    ...(process.env.NODE_ENV === 'production'
+      ? { optimizePackageImports: ['lucide-react', '@google/generative-ai', 'openai'] }
+      : {}),
   },
   async headers() {
     return [
@@ -48,4 +50,3 @@ const nextConfig = {
 };
 
 export default nextConfig;
-

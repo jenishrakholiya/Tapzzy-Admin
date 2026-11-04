@@ -61,7 +61,7 @@ function LoginFormContent() {
             T
           </div>
           <span className="font-extrabold tracking-tight text-white text-sm font-heading">
-            tapyy
+            tapzzy
           </span>
         </Link>
       </header>
@@ -142,7 +142,7 @@ function LoginFormContent() {
 
       {/* Footer */}
       <footer className="text-center text-[11px] text-slate-500 py-3">
-        © 2026 Tapyy
+        © 2026 Tapzzy
       </footer>
     </div>
   );

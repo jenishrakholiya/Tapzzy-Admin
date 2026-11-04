@@ -17,13 +17,14 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: 'Tapyy — Physical NFC & QR Review Experience',
-  description: 'Turn physical customer taps into authentic Google reviews with Tapyy hardware NFC cards and AI assistance.',
-  applicationName: 'Tapyy',
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://tapzzy-admin.vercel.app'),
+  title: 'Tapzzy — Physical NFC & QR Review Experience',
+  description: 'Turn physical customer taps into authentic Google reviews with Tapzzy hardware NFC cards and AI assistance.',
+  applicationName: 'Tapzzy',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'Tapyy',
+    title: 'Tapzzy',
   },
   formatDetection: {
     telephone: false,

@@ -92,15 +92,13 @@ export default function StandActivation({ card, onActivated }: Props) {
     }
   }
 
-  const [origin, setOrigin] = useState('https://tapyy.com');
+  const [standUrl, setStandUrl] = useState(`https://tapzzy-admin.vercel.app/r/${card.card_code}`);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      setOrigin(window.location.origin);
+      setStandUrl(`${window.location.origin}/r/${card.card_code}`);
     }
-  }, []);
-
-  const standUrl = `${origin}/r/${card.card_code}`;
+  }, [card.card_code]);
 
   async function handleActivate(e: React.FormEvent) {
     e.preventDefault();
@@ -165,7 +163,7 @@ export default function StandActivation({ card, onActivated }: Props) {
             <div className="space-y-0.5 overflow-hidden">
               <p className="text-xs font-bold text-amber-400 uppercase tracking-wider">Ready for Guests</p>
               <p className="text-xs font-extrabold truncate text-white">{activatedSuccess.card.name}</p>
-              <p className="text-[10px] text-gray-400 font-mono truncate">{standUrl}</p>
+              <p suppressHydrationWarning className="text-[10px] text-gray-400 font-mono truncate">{standUrl}</p>
             </div>
           </div>
 

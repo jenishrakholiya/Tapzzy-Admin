@@ -16,7 +16,9 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  const token = request.cookies.get(ADMIN_COOKIE_NAME)?.value;
+  const token =
+    request.cookies.get(ADMIN_COOKIE_NAME)?.value ||
+    request.cookies.get('tapyy_admin_session')?.value;
   let isAuthenticated = false;
 
   if (token) {
@@ -25,7 +27,7 @@ export async function middleware(request: NextRequest) {
   } else {
     // Also check header directly in case of raw cookie string
     const rawCookie = request.headers.get('cookie') || '';
-    const match = rawCookie.match(new RegExp(`${ADMIN_COOKIE_NAME}=([^;]+)`));
+    const match = rawCookie.match(new RegExp(`(?:${ADMIN_COOKIE_NAME}|tapyy_admin_session)=([^;]+)`));
     if (match) {
       const { valid } = await verifySessionToken(match[1]);
       isAuthenticated = valid;

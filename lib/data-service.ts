@@ -1,4 +1,3 @@
-import { cache } from 'react';
 import { Business, PhysicalCard, CardStatus, ReviewSession, AnalyticsEvent, AIGeneration } from './types';
 import { createClient } from './supabase/client';
 import { createAdminClient } from './supabase/admin';
@@ -210,14 +209,41 @@ export function parseCard(card: PhysicalCard): PhysicalCard {
   };
 }
 
-export const getCardByCode = cache(async (cardCode: string): Promise<{ card: PhysicalCard; business: Business | null } | null> => {
+export async function getCardByCode(cardCode: string): Promise<{ card: PhysicalCard; business: Business | null } | null> {
+  const cleanCode = (cardCode || '').trim().toUpperCase();
+
+  // 1. If running in browser, use server lookup endpoint to guarantee live Supabase data
+  if (typeof window !== 'undefined') {
+    try {
+      const res = await fetch(`/api/cards/lookup?code=${encodeURIComponent(cleanCode)}`, {
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.card) {
+          // Sync local storage as well
+          const cardsList = getStoredCards();
+          const idx = cardsList.findIndex((c) => (c.card_code || '').trim().toUpperCase() === cleanCode);
+          if (idx !== -1) {
+            cardsList[idx] = { ...cardsList[idx], ...json.card, business: json.business };
+            saveStoredCards(cardsList);
+          }
+          return { card: json.card, business: json.business };
+        }
+      }
+    } catch (err) {
+      console.warn('API lookup failed in browser, attempting fallback:', err);
+    }
+  }
+
+  // 2. Server-side Supabase direct access (or client fallback)
   if (isLiveSupabaseConfigured()) {
     try {
       const adminClient = createAdminClient();
       const { data: card, error: cardErr } = await adminClient
         .from('cards')
         .select('*, business:businesses(*)')
-        .eq('card_code', cardCode)
+        .ilike('card_code', cleanCode)
         .maybeSingle();
 
       if (!cardErr && card) {
@@ -236,7 +262,7 @@ export const getCardByCode = cache(async (cardCode: string): Promise<{ card: Phy
       const { data: card, error: cardErr } = await supabase
         .from('cards')
         .select('*, business:businesses(*)')
-        .eq('card_code', cardCode)
+        .ilike('card_code', cleanCode)
         .maybeSingle();
 
       if (!cardErr && card) {
@@ -252,14 +278,14 @@ export const getCardByCode = cache(async (cardCode: string): Promise<{ card: Phy
   }
 
   const cards = getStoredCards();
-  const rawCard = cards.find((c) => c.card_code === cardCode);
+  const rawCard = cards.find((c) => (c.card_code || '').trim().toUpperCase() === cleanCode);
   if (!rawCard) return null;
   const card = parseCard(rawCard);
   if (card.is_deleted) return null;
   const businesses = getStoredBusinesses();
   const business = businesses.find((b) => b.id === card.business_id) || card.business || null;
   return { card, business };
-});
+}
 
 export async function getAllCards(): Promise<PhysicalCard[]> {
   if (isLiveSupabaseConfigured()) {
@@ -320,7 +346,7 @@ export async function getAllBusinesses(): Promise<Business[]> {
 
 export async function createBusiness(name: string, logo_url: string, google_review_url: string): Promise<Business> {
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-  
+
   if (isLiveSupabaseConfigured()) {
     // 1. Try server-side API route
     try {
@@ -396,7 +422,7 @@ export async function createBusiness(name: string, logo_url: string, google_revi
 export async function issuePhysicalCard(business_id: string, card_name: string, custom_code?: string): Promise<PhysicalCard> {
   const cardsList = getStoredCards();
   const code = custom_code || `${cardsList.length + 1}-${Math.random().toString(36).substring(2, 7)}`;
-  
+
   if (isLiveSupabaseConfigured()) {
     // 1. Try server-side API route
     try {
@@ -524,6 +550,7 @@ export async function activateCard(
     placement_name?: string;
   }
 ): Promise<{ card: PhysicalCard; business: Business }> {
+  const cleanCode = (cardCode || '').trim().toUpperCase();
   let targetBusiness: Business | null = null;
   const businesses = await getAllBusinesses();
 
@@ -542,14 +569,42 @@ export async function activateCard(
     throw new Error('Business information is required to activate stand.');
   }
 
+  // 1. Try public activation endpoint (works from mobile phone scans or any device without admin cookie)
+  try {
+    const res = await fetch('/api/cards/activate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        card_code: cleanCode,
+        business_id: targetBusiness.id,
+        placement_name: payload.placement_name?.trim() || 'Counter Stand #1',
+      }),
+    });
+    const json = await res.json();
+    if (res.ok && json.card && json.business) {
+      // Sync local storage as well
+      const cardsList = getStoredCards();
+      const idx = cardsList.findIndex((c) => (c.card_code || '').trim().toUpperCase() === cleanCode);
+      if (idx !== -1) {
+        cardsList[idx] = { ...cardsList[idx], ...json.card, business: json.business };
+        saveStoredCards(cardsList);
+      }
+      return { card: json.card, business: json.business };
+    }
+  } catch (err) {
+    console.warn('API activation endpoint failed, attempting direct update:', err);
+  }
+
+  // 2. Direct fallback
   const cards = await getAllCards();
-  const card = cards.find((c) => c.card_code === cardCode);
+  const card = cards.find((c) => (c.card_code || '').trim().toUpperCase() === cleanCode);
   if (!card) {
-    throw new Error(`Stand code ${cardCode} was not found.`);
+    throw new Error(`Stand code ${cleanCode} was not found.`);
   }
 
   const updatedCard = await updateCard(card.id, {
     business_id: targetBusiness.id,
+    card_code: cleanCode,
     name: payload.placement_name?.trim() || 'Counter Stand #1',
     status: 'active',
   });
@@ -791,6 +846,8 @@ export async function deleteBusiness(id: string): Promise<boolean> {
 }
 
 export async function updateCard(id: string, updates: Partial<PhysicalCard>): Promise<PhysicalCard> {
+  const isUuid = id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
   if (isLiveSupabaseConfigured()) {
     try {
       const res = await fetch('/api/admin/cards', {
@@ -800,19 +857,26 @@ export async function updateCard(id: string, updates: Partial<PhysicalCard>): Pr
       });
       const json = await res.json();
       if (res.ok && json.card) {
+        // Sync local storage as well
+        const cardsList = getStoredCards();
+        const idx = cardsList.findIndex((c) => c.id === id || (updates.card_code && c.card_code === updates.card_code));
+        if (idx !== -1) {
+          cardsList[idx] = { ...cardsList[idx], ...json.card };
+          saveStoredCards(cardsList);
+        }
         return json.card;
       }
       if (json.error) {
-        if (isApiKeyOrAuthError(json.error)) {
-          console.warn('Supabase auth error during card update:', json.error);
+        if (isApiKeyOrAuthError(json.error) || json.error.includes('uuid')) {
+          console.warn('Supabase API error during card update, trying direct client:', json.error);
         } else if (!json.error.includes('RLS') && !json.error.includes('policy')) {
           throw new Error(json.error);
         }
       }
     } catch (err: unknown) {
       if (err instanceof Error) {
-        if (isApiKeyOrAuthError(err.message)) {
-          console.warn('API key error caught during card update:', err.message);
+        if (isApiKeyOrAuthError(err.message) || err.message.includes('uuid')) {
+          console.warn('API error caught during card update, falling back:', err.message);
         } else if (!err.message.includes('fetch')) {
           throw err;
         }
@@ -821,25 +885,41 @@ export async function updateCard(id: string, updates: Partial<PhysicalCard>): Pr
 
     try {
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from('cards')
-        .update(updates)
-        .eq('id', id)
-        .select('*, business:businesses(*)')
-        .single();
+      let query = supabase.from('cards').update(updates);
+      if (isUuid) {
+        query = query.eq('id', id);
+      } else if (updates.card_code) {
+        query = query.ilike('card_code', updates.card_code);
+      } else {
+        query = query.eq('id', id);
+      }
 
-      if (!error && data) return data;
+      const { data, error } = await query
+        .select('*, business:businesses(*)')
+        .maybeSingle();
+
+      if (!error && data) {
+        // Sync local storage
+        const cardsList = getStoredCards();
+        const idx = cardsList.findIndex((c) => c.id === id || (updates.card_code && c.card_code === updates.card_code));
+        if (idx !== -1) {
+          cardsList[idx] = { ...cardsList[idx], ...data };
+          saveStoredCards(cardsList);
+        }
+        return data;
+      }
+
       if (error) {
-        if (isApiKeyOrAuthError(error.message)) {
-          console.warn('Supabase anon key error during card update:', error.message);
+        if (isApiKeyOrAuthError(error.message) || error.message.includes('uuid')) {
+          console.warn('Supabase direct error during card update:', error.message);
         } else {
           console.error('Supabase error updating card:', error);
           throw new Error(`Database Error (${error.code || 'RLS'}): ${error.message}`);
         }
       }
     } catch (err: unknown) {
-      if (err instanceof Error && isApiKeyOrAuthError(err.message)) {
-        console.warn('Browser client API key error:', err.message);
+      if (err instanceof Error && (isApiKeyOrAuthError(err.message) || err.message.includes('uuid'))) {
+        console.warn('Browser client key/uuid error:', err.message);
       } else if (err instanceof Error) {
         throw err;
       }
@@ -847,7 +927,7 @@ export async function updateCard(id: string, updates: Partial<PhysicalCard>): Pr
   }
 
   const cardsList = getStoredCards();
-  const index = cardsList.findIndex((c) => c.id === id);
+  const index = cardsList.findIndex((c) => c.id === id || (updates.card_code && c.card_code === updates.card_code));
   if (index !== -1) {
     const existing = cardsList[index];
     const updated: PhysicalCard = {

@@ -1,6 +1,6 @@
-# Tapyy Review Experience — MVP
+# Tapzzy Review Experience — MVP
 
-A mobile-first review flow prototype for two Tapyy NFC/QR cards.
+A mobile-first review flow prototype for two Tapzzy NFC/QR cards.
 
 ## Demo cards
 - `1-123ab` → Café

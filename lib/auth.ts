@@ -1,10 +1,10 @@
 // Standard Web Crypto HMAC session token utility
 // Compatible with both Next.js Edge Middleware and Node.js Server Runtimes
 
-export const ADMIN_COOKIE_NAME = 'tapyy_admin_session';
+export const ADMIN_COOKIE_NAME = 'tapzzy_admin_session';
 export const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days in seconds
 
-const DEFAULT_SECRET = 'tapyy_admin_secret_jwt_key_2026_super_secure';
+const DEFAULT_SECRET = 'tapzzy_admin_secret_jwt_key_2026_super_secure';
 
 function getSecretKey(): string {
   return process.env.ADMIN_SESSION_SECRET || DEFAULT_SECRET;

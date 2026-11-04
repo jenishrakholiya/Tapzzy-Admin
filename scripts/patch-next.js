@@ -5,7 +5,8 @@ const targetFile = path.join(__dirname, '..', 'node_modules', 'next', 'dist', 'l
 
 if (fs.existsSync(targetFile)) {
   let content = fs.readFileSync(targetFile, 'utf8');
-  
+
+  // Fix 1: Symlink handling
   const buggyCode = 'const isSymlink = part.isSymbolicLink();\n        if (isSymlink) {\n            const linkPath = await _fs.promises.readlink(absolutePath);';
   const fixedCode = `let isSymlink = part.isSymbolicLink();
         if (isSymlink) {
@@ -29,7 +30,16 @@ if (fs.existsSync(targetFile)) {
       /const isSymlink = part\.isSymbolicLink\(\);\s*if \(isSymlink\) \{\s*const linkPath = await _fs\.promises\.readlink\(absolutePath\);[\s\S]*?isDirectory = stats\.isDirectory\(\);\s*\} catch\s*\{\}\s*\}/,
       fixedCode
     );
-    fs.writeFileSync(targetFile, content, 'utf8');
-    console.log('✓ Successfully patched Next.js recursive-delete for OneDrive compatibility.');
   }
+
+  // Fix 2: Windows ENOTEMPTY / EBUSY retry fix
+  if (content.includes('code === "ENOTEMPTY"') && content.includes('t < 3')) {
+    content = content.replace(
+      'if ((code === "EBUSY" || code === "ENOTEMPTY" || code === "EPERM" || code === "EMFILE") && t < 3) {\n            await (0, _wait.wait)(t * 100);\n            return unlinkPath(p, isDir, t++);\n        }',
+      'if ((code === "EBUSY" || code === "ENOTEMPTY" || code === "EPERM" || code === "EMFILE") && t < 10) {\n            await (0, _wait.wait)(++t * 150);\n            return unlinkPath(p, isDir, t);\n        }'
+    );
+  }
+
+  fs.writeFileSync(targetFile, content, 'utf8');
+  console.log('✓ Successfully patched Next.js recursive-delete for OneDrive/Windows compatibility.');
 }

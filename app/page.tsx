@@ -26,7 +26,7 @@ export default async function LandingPage() {
               T
             </div>
             <span className="font-extrabold tracking-tight text-base font-heading">
-              tapyy
+              tapzzy
             </span>
           </div>
 
@@ -50,7 +50,7 @@ export default async function LandingPage() {
         </h1>
 
         <p className="text-sm sm:text-base text-gray-600 max-w-xl mx-auto leading-relaxed">
-          Tapyy pairs contactless venue stands with guided review drafting. Guests tap their phone, select quick highlights, and post directly to Google in seconds.
+          Tapzzy pairs contactless venue stands with guided review drafting. Guests tap their phone, select quick highlights, and post directly to Google in seconds.
         </p>
 
         {/* Action Grid */}
@@ -122,7 +122,7 @@ export default async function LandingPage() {
 
       {/* Clean Minimal Footer */}
       <footer className="p-5 text-center text-xs text-gray-400 border-t border-gray-200/60 bg-white">
-        © 2026 Tapyy. All rights reserved.
+        © 2026 Tapzzy. All rights reserved.
       </footer>
     </div>
   );

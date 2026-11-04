@@ -42,7 +42,7 @@ export async function GET() {
   return NextResponse.json(
     {
       status: 'ok',
-      service: 'tapyy-saas',
+      service: 'tapzzy-saas',
       timestamp: new Date().toISOString(),
       uptimeSeconds,
       environment: process.env.NODE_ENV || 'production',
